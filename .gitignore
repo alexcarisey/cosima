@@ -1,0 +1,9 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+.idea/
+contact/
+droplet/
+bmask/
+bmask_table/
+test/
