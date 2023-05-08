@@ -227,30 +227,32 @@ def detect_collide(bmask_y, bmask_x, bmask, edge_num, cast_num):
 
 
 def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, branch_data,
-               count, last_dir=None):
+               count, close_flag, last_dir=None):
     # os.system('cls')
     # time.sleep(1)
     # input("press enter to continue...")
     # clearConsole()
-
+    print("current y x: ", y_edge, x_edge)
+    print("starting y x: ", ring_output['ring_y'][0], ring_output['ring_x'][0])
     original_num = b_mask[y_edge, x_edge]
-    print(y_edge, x_edge, original_num)
+    # print(y_edge, x_edge, original_num)
     # casting
     if b_mask[y_edge, x_edge] == edge_num:
         action_on_neighbors(y_edge, x_edge, True, casting, b_mask, cast_num)
         # action_on_neighbors(y_edge, x_edge, True, detect_collide, b_mask, edge_num, cast_num)
 
-    if  b_mask[y_edge, x_edge] == 254:
-        # b_mask[y_edge, x_edge] = 255
+    if b_mask[y_edge, x_edge] == 254:
         overlap_xy.append([y_edge, x_edge])
-        record_ring(y_edge, x_edge, ring_output, branch_data, ring_map[y_edge, x_edge], contact_map[y_edge, x_edge],
-                    count,
-                    True)
-    else:
-        # b_mask[y_edge, x_edge] = (count % WALKER_MAX + 1)
-        record_ring(y_edge, x_edge, ring_output, branch_data, ring_map[y_edge, x_edge], contact_map[y_edge, x_edge],
-                    count,
-                    False)
+
+    record_ring(y_edge, x_edge, ring_output, branch_data, ring_map[y_edge, x_edge], contact_map[y_edge, x_edge],
+                count, b_mask[y_edge, x_edge] == 254, close_flag)
+
+    if count > 1 and ((y_edge+1 == ring_output['ring_y'][0] and x_edge == ring_output['ring_x'][0]) or
+                      (y_edge-1 == ring_output['ring_y'][0] and x_edge == ring_output['ring_x'][0]) or
+                      (y_edge == ring_output['ring_y'][0] and x_edge+1 == ring_output['ring_x'][0]) or
+                       (y_edge == ring_output['ring_y'][0] and x_edge-1 == ring_output['ring_x'][0])):
+        closed[0] = True
+        print(count, closed)
 
     b_mask[y_edge, x_edge] = (count % WALKER_MAX + 1)
     count += 1
@@ -259,88 +261,88 @@ def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num
         # go right
         if b_mask[y_edge, x_edge + 1] == edge_num or ( b_mask[y_edge, x_edge + 1] == 254):
             edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='r')
+                       branch_data, count, closed, last_dir='r')
 
         # go down
         if b_mask[y_edge + 1, x_edge] == edge_num or ( b_mask[y_edge + 1, x_edge] == 254):
             edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='d')
+                       branch_data, count, closed, last_dir='d')
 
         # go up
         if b_mask[y_edge - 1, x_edge] == edge_num or ( b_mask[y_edge - 1, x_edge] == 254):
             edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='u')
+                       branch_data, count, closed, last_dir='u')
 
         # go left
         if b_mask[y_edge, x_edge - 1] == edge_num or ( b_mask[y_edge, x_edge - 1] == 254):
             edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='l')
+                       branch_data, count, closed, last_dir='l')
 
     # 4th quadrant
     if x_edge > xc and y_edge >= yc:
         # go up
         if b_mask[y_edge - 1, x_edge] == edge_num or ( b_mask[y_edge - 1, x_edge] == 254):
             edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='u')
+                       branch_data, count, closed, last_dir='u')
 
         # go right
         if b_mask[y_edge, x_edge + 1] == edge_num or ( b_mask[y_edge, x_edge + 1] == 254):
             edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='r')
+                       branch_data, count, closed, last_dir='r')
 
         # go left
         if b_mask[y_edge, x_edge - 1] == edge_num or ( b_mask[y_edge, x_edge - 1] == 254):
             edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='l')
+                       branch_data, count, closed, last_dir='l')
 
         # go down
         if b_mask[y_edge + 1, x_edge] == edge_num or ( b_mask[y_edge + 1, x_edge] == 254):
             edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='d')
+                       branch_data, count, closed, last_dir='d')
 
     # 1st quadrant
     if y_edge < yc and x_edge >= xc:
         # go left
         if b_mask[y_edge, x_edge - 1] == edge_num or ( b_mask[y_edge, x_edge - 1] == 254):
             edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='l')
+                       branch_data, count, closed, last_dir='l')
 
         # go up
         if b_mask[y_edge - 1, x_edge] == edge_num or ( b_mask[y_edge - 1, x_edge] == 254):
             edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='u')
+                       branch_data, count, closed, last_dir='u')
 
         # go right
         if b_mask[y_edge, x_edge + 1] == edge_num or ( b_mask[y_edge, x_edge + 1] == 254):
             edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='r')
+                       branch_data, count, closed, last_dir='r')
 
         # go down
         if b_mask[y_edge + 1, x_edge] == edge_num or ( b_mask[y_edge + 1, x_edge] == 254):
             edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='d')
+                       branch_data, count, closed, last_dir='d')
 
     # 2nd quadrant
     if x_edge < xc and y_edge <= yc:
         # go down
         if b_mask[y_edge + 1, x_edge] == edge_num or ( b_mask[y_edge + 1, x_edge] == 254):
             edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='d')
+                       branch_data, count, closed, last_dir='d')
 
         # go left
         if b_mask[y_edge, x_edge - 1] == edge_num or ( b_mask[y_edge, x_edge - 1] == 254):
             edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='l')
+                       branch_data, count, closed, last_dir='l')
 
         # go up
         if b_mask[y_edge - 1, x_edge] == edge_num or ( b_mask[y_edge - 1, x_edge] == 254):
             edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='u')
+                       branch_data, count, closed, last_dir='u')
 
         # go right
         if b_mask[y_edge, x_edge + 1] == edge_num or ( b_mask[y_edge, x_edge + 1] == 254):
             edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
-                       branch_data, count, last_dir='r')
+                       branch_data, count, closed, last_dir='r')
 
     # # collide edge
     if original_num == 254:
@@ -364,26 +366,32 @@ def rm_inner_casting(y,x,bmask, target):
         action_on_neighbors(y, x, False, rm_inner_casting, bmask, target)
 
 
-def record_ring(y_edge, x_edge, ring_output, branch_output, ring_inten, contact_inten, count, overlap_flag):
-    if ring_output['ring_y'][count] != 0 and ring_output['ring_x'][count] != 0:
-        print("branch detected!!!!!")
-        print(ring_output['ring_y'][count], ring_output['ring_x'][count], ring_output['index'][count])
-        print(y_edge, x_edge, count)
-        branch_output['index'][count] = count
-        branch_output['ring_y'][count] = y_edge
-        branch_output['ring_x'][count] = x_edge
-        branch_output['ring_inten'][count] = ring_inten
-        branch_output['contact_inten'][count] = contact_inten
-        if overlap_flag is True:
-            branch_output['overlap'][count] = True
-    else:
-        ring_output['index'][count] = count
-        ring_output['ring_y'][count] = y_edge
-        ring_output['ring_x'][count] = x_edge
-        ring_output['ring_inten'][count] = ring_inten
-        ring_output['contact_inten'][count] = contact_inten
-        if overlap_flag is True:
-            ring_output['overlap'][count] = True
+def record_ring(y_edge, x_edge, ring_output, branch_output, ring_inten, contact_inten, count, overlap_flag, close_flag):
+    # check if ring is closed
+
+    if not closed[0]:
+        if ring_output['ring_y'][count] != 0 and ring_output['ring_x'][count] != 0:
+            print("branch detected!!!!!")
+            print(ring_output['ring_y'][count], ring_output['ring_x'][count], ring_output['index'][count])
+            print(y_edge, x_edge, count)
+            branch_output['index'][count] = count
+            branch_output['ring_y'][count] = y_edge
+            branch_output['ring_x'][count] = x_edge
+            branch_output['ring_inten'][count] = ring_inten
+            branch_output['contact_inten'][count] = contact_inten
+            branch_output['overlap'][count] = overlap_flag
+            # if overlap_flag is True:
+            #     branch_output['overlap'][count] = True
+        else:
+            ring_output['index'][count] = count
+            ring_output['ring_y'][count] = y_edge
+            ring_output['ring_x'][count] = x_edge
+            ring_output['ring_inten'][count] = ring_inten
+            ring_output['contact_inten'][count] = contact_inten
+            ring_output['overlap'][count] = overlap_flag
+            # if overlap_flag is True:
+            #     ring_output['overlap'][count] = True
+    # return close_flag
 
 
 def conv(val):
@@ -482,7 +490,7 @@ if __name__ == '__main__':
                     ring_len = int(row['Size in pixels']) * 10
                     print(row['object_id'], ring_len)
                     overlap_xy = []
-
+                    closed = [False]
                     ring_data = {
                         'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
                         'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
@@ -540,8 +548,8 @@ if __name__ == '__main__':
                     print("void info:", y_Start, cen_x, edge, cast, edge_copy[y_Start, cen_x], row['object_id'])
 
                     edge_recur(y_Start, cen_x, edge_copy, arr_droplet, arr_contact, edge, cast, cen_y, cen_x, ring_data,
-                               branch_data,
-                               0)  # y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, count, last_dir= None
+                               branch_data, 0,
+                               closed)  # y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, count, last_dir= None
 
                     # patch overlapped spots
                     b4_patch = edge_copy.copy()
@@ -579,7 +587,7 @@ if __name__ == '__main__':
                         branch_datatable = pl.concat([branch_datatable, branch_data])
 
                     # plot bmask
-                    if t >= 5:
+                    if t >= 4:
                         fig, (ax1, ax2) = plt.subplots(1, 2)
                         fig.suptitle(f"droplet id: {ring_data['object_id'][0]} , layer: {ring_data['layer'][0]}")
 
