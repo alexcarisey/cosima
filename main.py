@@ -1,7 +1,9 @@
 import os
 import sys
+import copy
 from time import time
 import re
+import math
 import numpy as np
 import polars as pl
 from matplotlib import pyplot as plt
@@ -231,9 +233,9 @@ def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num
     # os.system('cls')
     # time.sleep(1)
     # input("press enter to continue...")
-    # clearConsole()
-    print("current y x: ", y_edge, x_edge)
-    print("starting y x: ", ring_output['ring_y'][0], ring_output['ring_x'][0])
+    # # clearConsole()
+    # print("current y x: ", y_edge, x_edge)
+    # print("starting y x: ", ring_output['ring_y'][0], ring_output['ring_x'][0])
     original_num = b_mask[y_edge, x_edge]
     # print(y_edge, x_edge, original_num)
     # casting
@@ -360,7 +362,7 @@ def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num
 
 
 def rm_inner_casting(y,x,bmask, target):
-    print("removing...", target)
+    # print("removing...", target)
     if bmask[y,x] == target:
         bmask[y,x] = 255
         action_on_neighbors(y, x, False, rm_inner_casting, bmask, target)
@@ -371,9 +373,9 @@ def record_ring(y_edge, x_edge, ring_output, branch_output, ring_inten, contact_
 
     if not closed[0]:
         if ring_output['ring_y'][count] != 0 and ring_output['ring_x'][count] != 0:
-            print("branch detected!!!!!")
-            print(ring_output['ring_y'][count], ring_output['ring_x'][count], ring_output['index'][count])
-            print(y_edge, x_edge, count)
+            # print("branch detected!!!!!")
+            # print(ring_output['ring_y'][count], ring_output['ring_x'][count], ring_output['index'][count])
+            # print(y_edge, x_edge, count)
             branch_output['index'][count] = count
             branch_output['ring_y'][count] = y_edge
             branch_output['ring_x'][count] = x_edge
@@ -432,6 +434,7 @@ if __name__ == '__main__':
     # # HACK: # HACK: Work around ImagePlus#show() failure if no ImagePlus objects are already registered.
     # if ij.WindowManager.getIDList() is None:
     #     ij.py.run_macro('newImage("dummy", "8-bit", 1, 1, 1);')
+    # plt.figure()
 
     # check first time runner
     bmask_path = os.path.realpath("./bmask")
@@ -571,7 +574,6 @@ if __name__ == '__main__':
                             ring_data['ring_x'][dup_i] = branch_data['ring_x'][i_branch]
                             ring_data['ring_inten'][dup_i] = branch_data['ring_inten'][i_branch]
                             ring_data['contact_inten'][dup_i] = branch_data['contact_inten'][i_branch]
-                            print("=========================================================================")
 
                     ring_data = pl.DataFrame(ring_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
                     branch_data = pl.DataFrame(branch_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
@@ -587,7 +589,7 @@ if __name__ == '__main__':
                         branch_datatable = pl.concat([branch_datatable, branch_data])
 
                     # plot bmask
-                    if t >= 4:
+                    if t >= 5:
                         fig, (ax1, ax2) = plt.subplots(1, 2)
                         fig.suptitle(f"droplet id: {ring_data['object_id'][0]} , layer: {ring_data['layer'][0]}")
 
@@ -669,35 +671,89 @@ if __name__ == '__main__':
                 # plt.imshow(edge_c, interpolation='nearest')
                 # plt.show()
                 # post-casting
-            fig, ax_layer = plt.subplots(1, RING_THICKNESS + 1)
-            for i, ax in enumerate(ax_layer):
-                # fig.suptitle(f"layer: {i+1}")
-                if i < RING_THICKNESS:
-                    ax.set_title(f"layer: {i + 1}")
-                else:
-                    ax.set_title("projection")
-
-                text_kwargs = dict(ha='center', va='center', fontsize=10, color='C1')
-                for row_cen in arr_cen.iter_rows(named=True):
-                    label = f"{row_cen['object_id']}"
-                    ax.annotate(label,  # this is the text
-                                (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
-                                color='red',
-                                # these are the coordinates to position the label
-                                textcoords="offset points",  # how to position the text
-                                xytext=(0, 0),  # distance from text to points (x,y)
-                                ha='center')  # horizontal alignment can be left, right or center
-                    # ax.text(int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0)),
-                    #          f"{row_cen['object_id']}", **text_kwargs)
-                ax.imshow(map_layer[i])
-            plt.show()
+            # fig, ax_layer = plt.subplots(1, RING_THICKNESS + 1)
+            # for i, ax in enumerate(ax_layer):
+            #     # fig.suptitle(f"layer: {i+1}")
+            #     if i < RING_THICKNESS:
+            #         ax.set_title(f"layer: {i + 1}")
+            #     else:
+            #         ax.set_title("projection")
+            #
+            #     text_kwargs = dict(ha='center', va='center', fontsize=10, color='C1')
+            #     for row_cen in arr_cen.iter_rows(named=True):
+            #         label = f"{row_cen['object_id']}"
+            #         ax.annotate(label,  # this is the text
+            #                     (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
+            #                     color='red',
+            #                     # these are the coordinates to position the label
+            #                     textcoords="offset points",  # how to position the text
+            #                     xytext=(0, 0),  # distance from text to points (x,y)
+            #                     ha='center')  # horizontal alignment can be left, right or center
+            #         # ax.text(int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0)),
+            #         #          f"{row_cen['object_id']}", **text_kwargs)
+            #     ax.imshow(map_layer[i])
+            # plt.show()
 
 
             # ipywidgets.interact(plot_layer, l=(0,RING_THICKNESS+1, 1))
+
+
             def show_layer(layer):
                 return map_layer[layer - 1]
 
+            def show_plots(layer):
+                # plots_layer = ring_datatable.filter((pl.col("overlap") == 0) & (pl.col("layer") == layer - 1) & (pl.col("object_id") == row["object_id"]))
+                # layer_data = plots_layer.groupby("object_id", maintain_order=True).all()
+                # print(layer_data)
+                # print(plot_data[:,0], plot_data.shape)
+                # ring_plot_data = plot_data[(plot_data[:,0] == int(layer - 1)) & (plot_data[:,1] == row["object_id"])]
+                # print(ring_plot_data, ring_plot_data.shape)
+                # print(len(ring_data[layer-1]), len(index_data[layer-1]), row['object_id'])
+                print(i,layer-1, plot_data[i][layer-1])
+                return plot_data[i][layer-1]['ring_inten']
+                # return layer_data.get_column('ring_inten').to_numpy()[layer]
+                # print(layer, plots_layer)
+                # return plots_layer.get_column('index').to_numpy(), plots_layer.get_column('ring_inten').to_numpy()
+                # if focus == "ring":
+                #     return [plots_layer['index'], plots_layer['ring_inten']]
+                # if focus == "contact":
+                #     return [plots_layer['index'], plots_layer['contact_inten']]
+            plot_data = [[{'index':None,
+                          'ring_inten':None,
+                           'contact_inten':None
+                          } for _ in range(RING_THICKNESS)] for _ in range(arr_cen.shape[0])]
+            # plot_data = [[{'index':None,
+            #               'ring_inten':None,
+            #                'contact_inten':None
+            #               }] * RING_THICKNESS
+            #              ]*arr_cen.shape[0]
+            # print(plot_data, len(plot_data))
 
+            for i, row in enumerate(arr_cen.iter_rows(named=True)):
+                layer_data = copy.deepcopy(
+                    ring_datatable \
+                        .filter((pl.col("overlap") == 0) & (pl.col("object_id") == row["object_id"])) \
+                        .groupby("layer", maintain_order=True).all()
+                )
+                ring_data = copy.deepcopy(layer_data["ring_inten"].to_list())
+                contact_data = copy.deepcopy(layer_data['contact_inten'].to_list())
+                index_data = copy.deepcopy(layer_data["index"].to_list())
+                # print(index_data)
+                for x in range(RING_THICKNESS):
+                    print(len(index_data[x]),x,i)
+                    plot_data[i][x]['index'] = copy.deepcopy(index_data[x])
+                    plot_data[i][x]['ring_inten'] = copy.deepcopy(ring_data[x])
+                    plot_data[i][x]['contact_inten'] = copy.deepcopy(contact_data[x])
+                print(plot_data[i])
+
+
+                # controls_plot[i][0] = iplt.plot(show_plots, layer=slider, oid=row["object_id"], focus="ring", ax=ax2[i//c, i%c])
+                # control_contact = iplt.plot(show_plots, layer=slider, oid=row['object_id'], focus="contact",
+                #                          ax=ax2[i // c, i % c])
+
+            input("press enter")
+            print(plot_data)
+            # plotting map
             fig, ax = plt.subplots()
             plt.subplots_adjust(top=0.9)
             for row_cen in arr_cen.iter_rows(named=True):
@@ -711,9 +767,28 @@ if __name__ == '__main__':
                             ha='center')  # horizontal alignment can be left, right or center
                 # ax.text(int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0)),
                 #          f"{row_
-            axfreq = plt.axes([0.05, 0.95, 0.1, 0.01])  # right, top, length, width
+            axfreq = plt.axes([0.1, 0.95, 0.1, 0.01])  # right, top, length, width
             slider = Slider(axfreq, label="layer  ", valmin=1, valmax=RING_THICKNESS + 1, valstep=1)
             controls = iplt.imshow(show_layer, layer=slider, ax=ax)
-            manager = plt.get_current_fig_manager()
-            manager.full_screen_toggle()
+            fig.suptitle(f"layer: {controls.params['layer'] + 1}")
+            # plt.get_current_fig_manager().window.setGeometry(0, 0, 640, 480)
+
+            # plotting intensity for the whole layer
+            controls_plot = [[None]*2]*arr_cen.shape[0]
+            c = int(math.ceil(np.sqrt(arr_cen.shape[0])))
+            r = int(arr_cen.shape[0]/c + 1)
+            print(c,r, controls_plot)
+
+            fig, ax2 = plt.subplots(r, c)
+            fig.suptitle(f"intensity plot for layer: {controls.params['layer'] }")
+
+            for i, row in enumerate(arr_cen.iter_rows(named=True)):
+                table_row = i//c
+                table_col = i%c
+                controls_plot = iplt.plot(show_plots, layer=slider, ax=ax2[table_row, table_col])
+                # controls_plot[i][0] = iplt.plot(show_plots, layer=slider, oid=row["object_id"], focus="ring", ax=ax2[i//c, i%c])
+                # control_contact = iplt.plot(show_plots, layer=slider, oid=row['object_id'], focus="contact",
+                #                          ax=ax2[i // c, i % c])
+
             plt.show()
+            print("==============================================NEW IMAGE=================================================")
