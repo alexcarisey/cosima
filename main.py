@@ -11,6 +11,7 @@ from matplotlib.widgets import Slider
 import mpl_interactions.ipyplot as iplt
 from PIL import Image
 import shutil
+from scipy import interpolate
 
 pl.Config.set_fmt_str_lengths(1000)
 pl.Config.set_tbl_rows(1000)
@@ -48,6 +49,7 @@ ILASTIK_COLS = ['object_id',
 
 RING_THICKNESS = 5
 WALKER_MAX = 253
+X_NORMALIZE = 400
 
 
 def time_elapsed(func):
@@ -91,7 +93,8 @@ def file_ext_check(input_path, img_format):
                 check_list[i_file] = True  # not useful here
                 file_list[i_file] = name
         if ext == ".csv":
-            shutil.move(os.path.realpath(input_path + '/' + row_file), os.path.realpath(bmask_table_path + '/' + row_file))
+            shutil.move(os.path.realpath(input_path + '/' + row_file),
+                        os.path.realpath(bmask_table_path + '/' + row_file))
 
     file_table = pl.DataFrame({"file": file_list, "droplet": check_list}).filter(pl.col('droplet'))
     return file_table
@@ -249,10 +252,10 @@ def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num
     record_ring(y_edge, x_edge, ring_output, branch_data, ring_map[y_edge, x_edge], contact_map[y_edge, x_edge],
                 count, b_mask[y_edge, x_edge] == 254, close_flag)
 
-    if count > 1 and ((y_edge+1 == ring_output['ring_y'][0] and x_edge == ring_output['ring_x'][0]) or
-                      (y_edge-1 == ring_output['ring_y'][0] and x_edge == ring_output['ring_x'][0]) or
-                      (y_edge == ring_output['ring_y'][0] and x_edge+1 == ring_output['ring_x'][0]) or
-                       (y_edge == ring_output['ring_y'][0] and x_edge-1 == ring_output['ring_x'][0])):
+    if count > 1 and ((y_edge + 1 == ring_output['ring_y'][0] and x_edge == ring_output['ring_x'][0]) or
+                      (y_edge - 1 == ring_output['ring_y'][0] and x_edge == ring_output['ring_x'][0]) or
+                      (y_edge == ring_output['ring_y'][0] and x_edge + 1 == ring_output['ring_x'][0]) or
+                      (y_edge == ring_output['ring_y'][0] and x_edge - 1 == ring_output['ring_x'][0])):
         closed[0] = True
         print(count, closed)
 
@@ -261,88 +264,88 @@ def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num
     # 3rd quadrant
     if y_edge > yc and x_edge <= xc:
         # go right
-        if b_mask[y_edge, x_edge + 1] == edge_num or ( b_mask[y_edge, x_edge + 1] == 254):
+        if b_mask[y_edge, x_edge + 1] == edge_num or (b_mask[y_edge, x_edge + 1] == 254):
             edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='r')
 
         # go down
-        if b_mask[y_edge + 1, x_edge] == edge_num or ( b_mask[y_edge + 1, x_edge] == 254):
+        if b_mask[y_edge + 1, x_edge] == edge_num or (b_mask[y_edge + 1, x_edge] == 254):
             edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='d')
 
         # go up
-        if b_mask[y_edge - 1, x_edge] == edge_num or ( b_mask[y_edge - 1, x_edge] == 254):
+        if b_mask[y_edge - 1, x_edge] == edge_num or (b_mask[y_edge - 1, x_edge] == 254):
             edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='u')
 
         # go left
-        if b_mask[y_edge, x_edge - 1] == edge_num or ( b_mask[y_edge, x_edge - 1] == 254):
+        if b_mask[y_edge, x_edge - 1] == edge_num or (b_mask[y_edge, x_edge - 1] == 254):
             edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='l')
 
     # 4th quadrant
     if x_edge > xc and y_edge >= yc:
         # go up
-        if b_mask[y_edge - 1, x_edge] == edge_num or ( b_mask[y_edge - 1, x_edge] == 254):
+        if b_mask[y_edge - 1, x_edge] == edge_num or (b_mask[y_edge - 1, x_edge] == 254):
             edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='u')
 
         # go right
-        if b_mask[y_edge, x_edge + 1] == edge_num or ( b_mask[y_edge, x_edge + 1] == 254):
+        if b_mask[y_edge, x_edge + 1] == edge_num or (b_mask[y_edge, x_edge + 1] == 254):
             edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='r')
 
         # go left
-        if b_mask[y_edge, x_edge - 1] == edge_num or ( b_mask[y_edge, x_edge - 1] == 254):
+        if b_mask[y_edge, x_edge - 1] == edge_num or (b_mask[y_edge, x_edge - 1] == 254):
             edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='l')
 
         # go down
-        if b_mask[y_edge + 1, x_edge] == edge_num or ( b_mask[y_edge + 1, x_edge] == 254):
+        if b_mask[y_edge + 1, x_edge] == edge_num or (b_mask[y_edge + 1, x_edge] == 254):
             edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='d')
 
     # 1st quadrant
     if y_edge < yc and x_edge >= xc:
         # go left
-        if b_mask[y_edge, x_edge - 1] == edge_num or ( b_mask[y_edge, x_edge - 1] == 254):
+        if b_mask[y_edge, x_edge - 1] == edge_num or (b_mask[y_edge, x_edge - 1] == 254):
             edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='l')
 
         # go up
-        if b_mask[y_edge - 1, x_edge] == edge_num or ( b_mask[y_edge - 1, x_edge] == 254):
+        if b_mask[y_edge - 1, x_edge] == edge_num or (b_mask[y_edge - 1, x_edge] == 254):
             edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='u')
 
         # go right
-        if b_mask[y_edge, x_edge + 1] == edge_num or ( b_mask[y_edge, x_edge + 1] == 254):
+        if b_mask[y_edge, x_edge + 1] == edge_num or (b_mask[y_edge, x_edge + 1] == 254):
             edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='r')
 
         # go down
-        if b_mask[y_edge + 1, x_edge] == edge_num or ( b_mask[y_edge + 1, x_edge] == 254):
+        if b_mask[y_edge + 1, x_edge] == edge_num or (b_mask[y_edge + 1, x_edge] == 254):
             edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='d')
 
     # 2nd quadrant
     if x_edge < xc and y_edge <= yc:
         # go down
-        if b_mask[y_edge + 1, x_edge] == edge_num or ( b_mask[y_edge + 1, x_edge] == 254):
+        if b_mask[y_edge + 1, x_edge] == edge_num or (b_mask[y_edge + 1, x_edge] == 254):
             edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='d')
 
         # go left
-        if b_mask[y_edge, x_edge - 1] == edge_num or ( b_mask[y_edge, x_edge - 1] == 254):
+        if b_mask[y_edge, x_edge - 1] == edge_num or (b_mask[y_edge, x_edge - 1] == 254):
             edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='l')
 
         # go up
-        if b_mask[y_edge - 1, x_edge] == edge_num or ( b_mask[y_edge - 1, x_edge] == 254):
+        if b_mask[y_edge - 1, x_edge] == edge_num or (b_mask[y_edge - 1, x_edge] == 254):
             edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='u')
 
         # go right
-        if b_mask[y_edge, x_edge + 1] == edge_num or ( b_mask[y_edge, x_edge + 1] == 254):
+        if b_mask[y_edge, x_edge + 1] == edge_num or (b_mask[y_edge, x_edge + 1] == 254):
             edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='r')
 
@@ -361,10 +364,10 @@ def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num
     #     action_on_neighbors(y_edge, x_edge, True, detect_collide, b_mask, cast_num)
 
 
-def rm_inner_casting(y,x,bmask, target):
+def rm_inner_casting(y, x, bmask, target):
     # print("removing...", target)
-    if bmask[y,x] == target:
-        bmask[y,x] = 255
+    if bmask[y, x] == target:
+        bmask[y, x] = 255
         action_on_neighbors(y, x, False, rm_inner_casting, bmask, target)
 
 
@@ -476,7 +479,8 @@ if __name__ == '__main__':
 
             # load contact intensity
             # print(os.path.realpath(contact_path + '/' + item['file'] + ".tif"))
-            map_contact = Image.open(os.path.realpath(contact_path + '/' + item['file'].replace(" C=0_", " C=1_") + ".tif"))
+            map_contact = Image.open(
+                os.path.realpath(contact_path + '/' + item['file'].replace(" C=0_", " C=1_") + ".tif"))
             arr_contact = np.array(map_contact)
             plt.imshow(arr_contact)
             plt.show()
@@ -484,6 +488,8 @@ if __name__ == '__main__':
             t = 0
             ring_datatable = None
             branch_datatable = None
+            plot_y_max = 0
+            background = 0
             map_layer = np.full((RING_THICKNESS + 1, np.shape(edge_copy)[0], np.shape(edge_copy)[1]), 0)
 
             while t < RING_THICKNESS:
@@ -538,15 +544,15 @@ if __name__ == '__main__':
                         # print(start_last_layer)
                         y_Start = start_last_layer['ring_y'][0]
 
-                    if t ==1:
+                    if t == 1:
                         print('removing inner casting...')
-                        rm_inner_casting(y_Start-1,cen_x,edge_copy,edge)
+                        rm_inner_casting(y_Start - 1, cen_x, edge_copy, edge)
 
                     print("starting(y, x):", y_Start, cen_x)
 
                     while not (edge_copy[y_Start, cen_x] == edge or edge_copy[y_Start, cen_x] == 254):
                         y_Start += 1
-                        print(edge_copy[y_Start,cen_x], edge, y_Start, cen_x)
+                        print(edge_copy[y_Start, cen_x], edge, y_Start, cen_x)
                     # print(type(ring_data['layer']))
                     print("void info:", y_Start, cen_x, edge, cast, edge_copy[y_Start, cen_x], row['object_id'])
 
@@ -556,8 +562,8 @@ if __name__ == '__main__':
 
                     # patch overlapped spots
                     b4_patch = edge_copy.copy()
-                    for item in overlap_xy:
-                        edge_copy[item[0], item[1]] = 254
+                    for pix in overlap_xy:
+                        edge_copy[pix[0], pix[1]] = 254
 
                     # cook droplet data per layer and swap branched pixel
                     for i_branch in reversed(range(len(branch_data['index']))):
@@ -671,6 +677,8 @@ if __name__ == '__main__':
                 # plt.imshow(edge_c, interpolation='nearest')
                 # plt.show()
                 # post-casting
+
+
             # fig, ax_layer = plt.subplots(1, RING_THICKNESS + 1)
             # for i, ax in enumerate(ax_layer):
             #     # fig.suptitle(f"layer: {i+1}")
@@ -694,23 +702,16 @@ if __name__ == '__main__':
             #     ax.imshow(map_layer[i])
             # plt.show()
 
-
             # ipywidgets.interact(plot_layer, l=(0,RING_THICKNESS+1, 1))
-
+            # input("press enter")
 
             def show_layer(layer):
                 return map_layer[layer - 1]
 
-            def show_plots(layer):
-                # plots_layer = ring_datatable.filter((pl.col("overlap") == 0) & (pl.col("layer") == layer - 1) & (pl.col("object_id") == row["object_id"]))
-                # layer_data = plots_layer.groupby("object_id", maintain_order=True).all()
-                # print(layer_data)
-                # print(plot_data[:,0], plot_data.shape)
-                # ring_plot_data = plot_data[(plot_data[:,0] == int(layer - 1)) & (plot_data[:,1] == row["object_id"])]
-                # print(ring_plot_data, ring_plot_data.shape)
-                # print(len(ring_data[layer-1]), len(index_data[layer-1]), row['object_id'])
-                print(i,layer-1, plot_data[i][layer-1])
-                return plot_data[i][layer-1]['ring_inten']
+
+            def show_plots(layer, droplet):
+                print(droplet, layer - 1, plot_data[droplet][layer - 1]['ring_inten'][0])
+                return plot_data[droplet][layer - 1]['ring_inten']
                 # return layer_data.get_column('ring_inten').to_numpy()[layer]
                 # print(layer, plots_layer)
                 # return plots_layer.get_column('index').to_numpy(), plots_layer.get_column('ring_inten').to_numpy()
@@ -718,16 +719,12 @@ if __name__ == '__main__':
                 #     return [plots_layer['index'], plots_layer['ring_inten']]
                 # if focus == "contact":
                 #     return [plots_layer['index'], plots_layer['contact_inten']]
-            plot_data = [[{'index':None,
-                          'ring_inten':None,
-                           'contact_inten':None
-                          } for _ in range(RING_THICKNESS)] for _ in range(arr_cen.shape[0])]
-            # plot_data = [[{'index':None,
-            #               'ring_inten':None,
-            #                'contact_inten':None
-            #               }] * RING_THICKNESS
-            #              ]*arr_cen.shape[0]
-            # print(plot_data, len(plot_data))
+
+
+            plot_data = [[{
+                'ring_inten': 0,
+                'contact_inten': 0
+            } for _ in range(RING_THICKNESS)] for _ in range(arr_cen.shape[0])]
 
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
                 layer_data = copy.deepcopy(
@@ -735,24 +732,28 @@ if __name__ == '__main__':
                         .filter((pl.col("overlap") == 0) & (pl.col("object_id") == row["object_id"])) \
                         .groupby("layer", maintain_order=True).all()
                 )
-                ring_data = copy.deepcopy(layer_data["ring_inten"].to_list())
-                contact_data = copy.deepcopy(layer_data['contact_inten'].to_list())
-                index_data = copy.deepcopy(layer_data["index"].to_list())
+                ring_data = layer_data["ring_inten"].to_list()
+                contact_data = layer_data['contact_inten'].to_list()
+                index_data = layer_data["index"].to_list()
                 # print(index_data)
                 for x in range(RING_THICKNESS):
-                    print(len(index_data[x]),x,i)
-                    plot_data[i][x]['index'] = copy.deepcopy(index_data[x])
-                    plot_data[i][x]['ring_inten'] = copy.deepcopy(ring_data[x])
-                    plot_data[i][x]['contact_inten'] = copy.deepcopy(contact_data[x])
-                print(plot_data[i])
-
+                    ring_inter = interpolate.interp1d(index_data[x], ring_data[x])
+                    contact_inter = interpolate.interp1d(index_data[x], contact_data[x])
+                    # plot_data[i][x]['index'] = index_data[x]
+                    new_x = np.arange(index_data[x][0], index_data[x][-1],
+                                      (index_data[x][-1] - index_data[x][0]) / X_NORMALIZE)
+                    plot_data[i][x]['ring_inten'] = ring_inter(new_x)[:X_NORMALIZE]
+                    plot_data[i][x]['contact_inten'] = contact_inter(new_x)[:X_NORMALIZE]
+                    # print(layer_data["object_id"][0][0], index_data[x][0], index_data[x][-1], len(index_data[x]))
+                    # print(layer_data["object_id"][0][0],  len(new_x), len(plot_data[i][x]['ring_inten']))
+                    # print("=====================================================================================")
+                # print(plot_data[i])
 
                 # controls_plot[i][0] = iplt.plot(show_plots, layer=slider, oid=row["object_id"], focus="ring", ax=ax2[i//c, i%c])
                 # control_contact = iplt.plot(show_plots, layer=slider, oid=row['object_id'], focus="contact",
                 #                          ax=ax2[i // c, i % c])
 
-            input("press enter")
-            print(plot_data)
+            # print(plot_data)
             # plotting map
             fig, ax = plt.subplots()
             plt.subplots_adjust(top=0.9)
@@ -768,27 +769,48 @@ if __name__ == '__main__':
                 # ax.text(int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0)),
                 #          f"{row_
             axfreq = plt.axes([0.1, 0.95, 0.1, 0.01])  # right, top, length, width
-            slider = Slider(axfreq, label="layer  ", valmin=1, valmax=RING_THICKNESS + 1, valstep=1)
-            controls = iplt.imshow(show_layer, layer=slider, ax=ax)
+            slider_layer = Slider(axfreq, label="layer  ", valmin=1, valmax=RING_THICKNESS + 1, valstep=1)
+
+            controls = iplt.imshow(show_layer, layer=slider_layer, ax=ax)
             fig.suptitle(f"layer: {controls.params['layer'] + 1}")
-            # plt.get_current_fig_manager().window.setGeometry(0, 0, 640, 480)
+            plt.get_current_fig_manager().window.setGeometry(0, 0, 640, 480)
 
             # plotting intensity for the whole layer
-            controls_plot = [[None]*2]*arr_cen.shape[0]
+            controls_plot = [[None, None] for _ in range(arr_cen.shape[0])]
             c = int(math.ceil(np.sqrt(arr_cen.shape[0])))
-            r = int(arr_cen.shape[0]/c + 1)
-            print(c,r, controls_plot)
+            r = int(arr_cen.shape[0] / c + 1)
+            print(c, r, controls_plot)
 
             fig, ax2 = plt.subplots(r, c)
-            fig.suptitle(f"intensity plot for layer: {controls.params['layer'] }")
+            fig.suptitle(f"intensity plot for layer: {controls.params['layer']}")
 
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
-                table_row = i//c
-                table_col = i%c
-                controls_plot = iplt.plot(show_plots, layer=slider, ax=ax2[table_row, table_col])
+                table_row = i // c
+                table_col = i % c
+                axfreq_droplet = plt.axes([0.9, 0.95, 0.1, 0.01])  # right, top, length, width
+                slider_droplet = Slider(axfreq_droplet, label="droplet  ", valmin=i, valmax=i, valstep=1)
+                controls_plot[i][0] = iplt.plot(show_plots, layer=slider_layer, droplet=slider_droplet,
+                                                ax=ax2[table_row, table_col])
                 # controls_plot[i][0] = iplt.plot(show_plots, layer=slider, oid=row["object_id"], focus="ring", ax=ax2[i//c, i%c])
                 # control_contact = iplt.plot(show_plots, layer=slider, oid=row['object_id'], focus="contact",
                 #                          ax=ax2[i // c, i % c])
+            plt.get_current_fig_manager().window.setGeometry(650, 0, 640*3, 480*3)
+
+
+            # fig_layer = [[] for _ in range(RING_THICKNESS)]
+            # ax_layer = [[] for _ in range(RING_THICKNESS)]
+            for x in range(RING_THICKNESS):
+                fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c)
+                fig.suptitle(f"intensity plot for layer: {controls.params['layer']}")
+                for i, row in enumerate(arr_cen.iter_rows(named=True)):
+                    droplet = ring_datatable.filter(
+                        (pl.col('layer') == x + 1) & (pl.col('object_id') == row['object_id']) & (
+                                    pl.col('overlap') == 0))
+                    print(droplet, row['object_id'])
+                    table_row = i // c
+                    table_col = i % c
+                    ax_layer[table_row, table_col].plot(droplet['ring_inten'].to_numpy())
 
             plt.show()
-            print("==============================================NEW IMAGE=================================================")
+            print(
+                "==============================================NEW IMAGE=================================================")
