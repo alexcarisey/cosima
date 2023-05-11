@@ -488,9 +488,21 @@ if __name__ == '__main__':
             t = 0
             ring_datatable = None
             branch_datatable = None
-            plot_y_max = 0
-            background = 0
+            droplet_1d_sort = np.sort(arr_droplet, axis=None)
+            contact_1d_sort = np.sort(arr_contact, axis=None)
+            background_droplet = np.sum(droplet_1d_sort[0:10]) / 10
+            background_contact = np.sum(contact_1d_sort[0:10]) / 10
+
+            # subtract background intensity
+            arr_droplet -= int(background_droplet)
+            arr_contact -= int(background_contact)
+
+            plot_y_max_droplet = 0
+            plot_y_max_contact = 0
+            # print(background_contact,background_droplet)
             map_layer = np.full((RING_THICKNESS + 1, np.shape(edge_copy)[0], np.shape(edge_copy)[1]), 0)
+
+
 
             while t < RING_THICKNESS:
                 for i, row in enumerate(arr_cen.iter_rows(named=True)):
@@ -593,6 +605,7 @@ if __name__ == '__main__':
                         branch_datatable = branch_data.clone()
                     else:
                         branch_datatable = pl.concat([branch_datatable, branch_data])
+
 
                     # plot bmask
                     if t >= 5:
@@ -704,21 +717,19 @@ if __name__ == '__main__':
 
             # ipywidgets.interact(plot_layer, l=(0,RING_THICKNESS+1, 1))
             # input("press enter")
+            plot_y_max_droplet = np.sort(ring_datatable['ring_inten'].to_numpy(), axis=None)[-1] + 1000
+            plot_y_max_contact = np.sort(ring_datatable['contact_inten'].to_numpy(), axis=None)[-1] + 100
+            print(plot_y_max_droplet, plot_y_max_contact)
+            # input("press enter")
 
             def show_layer(layer):
                 return map_layer[layer - 1]
 
 
-            def show_plots(layer, droplet):
-                print(droplet, layer - 1, plot_data[droplet][layer - 1]['ring_inten'][0])
-                return plot_data[droplet][layer - 1]['ring_inten']
-                # return layer_data.get_column('ring_inten').to_numpy()[layer]
-                # print(layer, plots_layer)
-                # return plots_layer.get_column('index').to_numpy(), plots_layer.get_column('ring_inten').to_numpy()
-                # if focus == "ring":
-                #     return [plots_layer['index'], plots_layer['ring_inten']]
-                # if focus == "contact":
-                #     return [plots_layer['index'], plots_layer['contact_inten']]
+            def show_plots(layer, droplet_index):
+                # print(droplet_index, layer - 1, plot_data[droplet_index][layer - 1]['ring_inten'][0])
+                return plot_data[droplet_index][layer - 1]['ring_inten']
+
 
 
             plot_data = [[{
@@ -772,7 +783,7 @@ if __name__ == '__main__':
             slider_layer = Slider(axfreq, label="layer  ", valmin=1, valmax=RING_THICKNESS + 1, valstep=1)
 
             controls = iplt.imshow(show_layer, layer=slider_layer, ax=ax)
-            fig.suptitle(f"layer: {controls.params['layer'] + 1}")
+            fig.suptitle(f"traverse map")
             plt.get_current_fig_manager().window.setGeometry(0, 0, 640, 480)
 
             # plotting intensity for the whole layer
@@ -781,35 +792,39 @@ if __name__ == '__main__':
             r = int(arr_cen.shape[0] / c + 1)
             print(c, r, controls_plot)
 
-            fig, ax2 = plt.subplots(r, c)
-            fig.suptitle(f"intensity plot for layer: {controls.params['layer']}")
+            fig, ax2 = plt.subplots(r, c, layout="constrained")
+            fig.suptitle(f"intensity plot for image: {item['file']}")
 
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
                 table_row = i // c
                 table_col = i % c
-                axfreq_droplet = plt.axes([0.9, 0.95, 0.1, 0.01])  # right, top, length, width
-                slider_droplet = Slider(axfreq_droplet, label="droplet  ", valmin=i, valmax=i, valstep=1)
-                controls_plot[i][0] = iplt.plot(show_plots, layer=slider_layer, droplet=slider_droplet,
+                axfreq_droplet = plt.axes([1, 0.95, 0.1, 0.01])  # right, top, length, width
+                slider_droplet = Slider(axfreq_droplet, label="", valmin=i, valmax=i, valstep=1)
+                controls_plot[i][0] = iplt.plot(show_plots, layer=slider_layer, droplet_index=slider_droplet,
                                                 ax=ax2[table_row, table_col])
                 # controls_plot[i][0] = iplt.plot(show_plots, layer=slider, oid=row["object_id"], focus="ring", ax=ax2[i//c, i%c])
                 # control_contact = iplt.plot(show_plots, layer=slider, oid=row['object_id'], focus="contact",
                 #                          ax=ax2[i // c, i % c])
+                ax2[table_row, table_col].set_ylim([0, plot_y_max_droplet])
+                ax2[table_row, table_col].set_title(f"object_id: {row['object_id']}")
+                ax2[table_row, table_col].set_xlabel('distance (px)')
+                ax2[table_row, table_col].set_ylabel('raw intensity')
             plt.get_current_fig_manager().window.setGeometry(650, 0, 640*3, 480*3)
 
 
             # fig_layer = [[] for _ in range(RING_THICKNESS)]
             # ax_layer = [[] for _ in range(RING_THICKNESS)]
-            for x in range(RING_THICKNESS):
-                fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c)
-                fig.suptitle(f"intensity plot for layer: {controls.params['layer']}")
-                for i, row in enumerate(arr_cen.iter_rows(named=True)):
-                    droplet = ring_datatable.filter(
-                        (pl.col('layer') == x + 1) & (pl.col('object_id') == row['object_id']) & (
-                                    pl.col('overlap') == 0))
-                    print(droplet, row['object_id'])
-                    table_row = i // c
-                    table_col = i % c
-                    ax_layer[table_row, table_col].plot(droplet['ring_inten'].to_numpy())
+            # for x in range(RING_THICKNESS):
+            #     fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c)
+            #     fig.suptitle(f"intensity plot for layer: {controls.params['layer']}")
+            #     for i, row in enumerate(arr_cen.iter_rows(named=True)):
+            #         droplet = ring_datatable.filter(
+            #             (pl.col('layer') == x + 1) & (pl.col('object_id') == row['object_id']) & (
+            #                         pl.col('overlap') == 0))
+            #         print(droplet, row['object_id'])
+            #         table_row = i // c
+            #         table_col = i % c
+            #         ax_layer[table_row, table_col].plot(droplet['ring_inten'].to_numpy())
 
             plt.show()
             print(
