@@ -96,6 +96,7 @@ fabric.properties
 /workspace.xml
 
 # local only data
+output/
 contact/
 droplet/
 bmask/

@@ -74,8 +74,11 @@ def file_ext_check(input_path, img_format):
         os.makedirs(bmask_path)
         os.makedirs(bmask_table_path)
 
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
     file_list = os.listdir(input_path)
-    check_list = [None] * len(file_list)
+    check_list = [[] for _ in range(len(file_list))]
 
     for i_file, row_file in enumerate(file_list):
         # Split the extension from the path and make it lowercase.
@@ -84,10 +87,12 @@ def file_ext_check(input_path, img_format):
         ext = os.path.splitext(row_file)[-1].lower()
         print(i_file, name, ext)
         if ext == ".tif":
+            # allocate mask to the according folder
             if re.search("_Object Predictions", name):
                 print("src: ", os.path.realpath(input_path + '/' + row_file))
                 print("src: ", os.path.realpath(bmask_table_path + '/' + row_file))
-                os.replace(os.path.realpath(input_path + '/' + row_file), os.path.realpath(bmask_path + '/' + row_file))
+                shutil.move(os.path.realpath(input_path + '/' + row_file), os.path.realpath(bmask_path + '/' + row_file))
+                # os.replace(os.path.realpath(input_path + '/' + row_file), os.path.realpath(bmask_path + '/' + row_file))
             else:
                 img_format[ext] += 1
                 check_list[i_file] = True  # not useful here
@@ -96,7 +101,7 @@ def file_ext_check(input_path, img_format):
             shutil.move(os.path.realpath(input_path + '/' + row_file),
                         os.path.realpath(bmask_table_path + '/' + row_file))
 
-    file_table = pl.DataFrame({"file": file_list, "droplet": check_list}).filter(pl.col('droplet'))
+    file_table = pl.DataFrame({"file": file_list, "droplet": check_list})
     return file_table
 
 
@@ -373,7 +378,6 @@ def rm_inner_casting(y, x, bmask, target):
 
 def record_ring(y_edge, x_edge, ring_output, branch_output, ring_inten, contact_inten, count, overlap_flag, close_flag):
     # check if ring is closed
-
     if not closed[0]:
         if ring_output['ring_y'][count] != 0 and ring_output['ring_x'][count] != 0:
             # print("branch detected!!!!!")
@@ -444,11 +448,16 @@ if __name__ == '__main__':
     bmask_table_path = os.path.realpath("./bmask_table")
     droplet_path = os.path.realpath("./droplet")
     contact_path = os.path.realpath("./contact")
+    output_path = os.path.realpath("./output")
     print(bmask_path, bmask_table_path, droplet_path, contact_path)
 
     # check format in batch
     file_lookup_list = file_ext_check(droplet_path, IMG_FORMAT)
     print(file_lookup_list)
+    input("please press enter to proceed...")
+
+    ring_data_project = None
+    branch_data_project = None
 
     # load images and tables from file_lookup_list
     for item in file_lookup_list.iter_rows(named=True):
@@ -486,12 +495,13 @@ if __name__ == '__main__':
             plt.show()
 
             t = 0
-            ring_datatable = None
-            branch_datatable = None
+
             droplet_1d_sort = np.sort(arr_droplet, axis=None)
             contact_1d_sort = np.sort(arr_contact, axis=None)
-            background_droplet = np.sum(droplet_1d_sort[0:10]) / 10
-            background_contact = np.sum(contact_1d_sort[0:10]) / 10
+            background_droplet = np.sum(droplet_1d_sort[0:100]) / 100
+            background_contact = np.sum(contact_1d_sort[0:100]) / 100
+            print(background_droplet, background_contact)
+            input("please check background value and press enter to proceed...")
 
             # subtract background intensity
             arr_droplet -= int(background_droplet)
@@ -501,7 +511,8 @@ if __name__ == '__main__':
             plot_y_max_contact = 0
             # print(background_contact,background_droplet)
             map_layer = np.full((RING_THICKNESS + 1, np.shape(edge_copy)[0], np.shape(edge_copy)[1]), 0)
-
+            ring_data_layer = None
+            branch_data_layer = None
 
 
             while t < RING_THICKNESS:
@@ -513,6 +524,7 @@ if __name__ == '__main__':
                     overlap_xy = []
                     closed = [False]
                     ring_data = {
+                        'image': np.full((ring_len,), item['file']),
                         'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
                         'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
                         'index': np.zeros((ring_len,), dtype=np.uint16),
@@ -524,6 +536,7 @@ if __name__ == '__main__':
                     }
 
                     branch_data = {
+                        'image': np.full((ring_len,), item['file']),
                         'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
                         'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
                         'index': np.zeros((ring_len,), dtype=np.uint16),
@@ -551,7 +564,7 @@ if __name__ == '__main__':
                     if t == 0:
                         y_Start = cen_y
                     else:
-                        start_last_layer = ring_datatable.filter(
+                        start_last_layer = ring_data_layer.filter(
                             (pl.col("object_id") == row['object_id']) & (pl.col("layer") == t) & (pl.col("index") == 0))
                         # print(start_last_layer)
                         y_Start = start_last_layer['ring_y'][0]
@@ -596,16 +609,29 @@ if __name__ == '__main__':
                     ring_data = pl.DataFrame(ring_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
                     branch_data = pl.DataFrame(branch_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
                     print(ring_data, branch_data)
-                    if ring_datatable is None:
-                        ring_datatable = ring_data.clone()
+                    if ring_data_layer is None:
+                        ring_data_layer = ring_data.clone()
                     else:
-                        ring_datatable = pl.concat([ring_datatable, ring_data])
+                        ring_data_layer = pl.concat([ring_data_layer, ring_data])
 
-                    if branch_datatable is None:
-                        branch_datatable = branch_data.clone()
+                    if branch_data_layer is None:
+                        branch_data_layer = branch_data.clone()
                     else:
-                        branch_datatable = pl.concat([branch_datatable, branch_data])
+                        branch_data_layer = pl.concat([branch_data_layer, branch_data])
 
+                    if ring_data_project is None:
+                        ring_data_project = ring_data.clone()
+                    else:
+                        ring_data_project = pl.concat([ring_data_project, ring_data])
+
+                    if branch_data_project is None:
+                        branch_data_project = branch_data.clone()
+                    else:
+                        branch_data_project = pl.concat([branch_data_project, branch_data])
+
+                    # # save and export as csv
+                    # ring_data_layer.write_csv(os.path.realpath(output_path + '/ring.csv'))
+                    # branch_data_layer.write_csv(os.path.realpath(output_path + '/branch.csv'))
 
                     # plot bmask
                     if t >= 5:
@@ -683,9 +709,13 @@ if __name__ == '__main__':
                 map_filtered[map_filtered >= 254] = (t + 1) * 255
                 map_layer[-1] += map_filtered
 
-                print(ring_datatable, branch_datatable)
+                print(ring_data_layer, branch_data_layer)
                 # increase thickness
                 t += 1
+
+                # save and export as csv
+                ring_data_project.write_csv(os.path.realpath(output_path + '/ring.csv'))
+                branch_data_project.write_csv(os.path.realpath(output_path + '/branch.csv'))
 
                 # plt.imshow(edge_c, interpolation='nearest')
                 # plt.show()
@@ -717,8 +747,8 @@ if __name__ == '__main__':
 
             # ipywidgets.interact(plot_layer, l=(0,RING_THICKNESS+1, 1))
             # input("press enter")
-            plot_y_max_droplet = np.sort(ring_datatable['ring_inten'].to_numpy(), axis=None)[-1] + 1000
-            plot_y_max_contact = np.sort(ring_datatable['contact_inten'].to_numpy(), axis=None)[-1] + 100
+            plot_y_max_droplet = np.sort(ring_data_layer['ring_inten'].to_numpy(), axis=None)[-1] + 1000
+            plot_y_max_contact = np.sort(ring_data_layer['contact_inten'].to_numpy(), axis=None)[-1] + 100
             print(plot_y_max_droplet, plot_y_max_contact)
             # input("press enter")
 
@@ -739,7 +769,7 @@ if __name__ == '__main__':
 
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
                 layer_data = copy.deepcopy(
-                    ring_datatable \
+                    ring_data_layer \
                         .filter((pl.col("overlap") == 0) & (pl.col("object_id") == row["object_id"])) \
                         .groupby("layer", maintain_order=True).all()
                 )
@@ -829,3 +859,4 @@ if __name__ == '__main__':
             plt.show()
             print(
                 "==============================================NEW IMAGE=================================================")
+    print(ring_data_project.shape)
