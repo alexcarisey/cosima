@@ -1,7 +1,0 @@
-image,object_id,layer,index,ring_y,ring_x,ring_inten,contact_inten,overlap
-ER-LD 300uM OA+3 DOM 60x confocal Z003.nd2 - Z=3 C=0_104_10006,108,1,52,461,823,1999,80,false
-ER-LD 300uM OA+3 DOM 60x confocal Z003.nd2 - Z=3 C=0_104_10006,108,1,53,462,823,1920,132,false
-ER-LD 300uM OA+3 DOM 60x confocal Z003.nd2 - Z=3 C=0_104_10006,118,1,45,470,835,2873,269,false
-ER-LD 300uM OA+3 DOM 60x confocal Z003.nd2 - Z=3 C=0_104_10006,197,1,28,561,380,531,53,false
-ER-LD 300uM OA+3 DOM 60x confocal Z003.nd2 - Z=3 C=0_104_10006,197,1,29,562,380,462,70,false
-ER-LD 300uM OA+3 DOM 60x confocal Z003.nd2 - Z=3 C=0_104_10006,569,1,14,683,430,5544,95,false
