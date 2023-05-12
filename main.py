@@ -1,6 +1,7 @@
 import os
 import sys
 import copy
+import datetime
 from time import time
 import re
 import math
@@ -443,6 +444,11 @@ if __name__ == '__main__':
     #     ij.py.run_macro('newImage("dummy", "8-bit", 1, 1, 1);')
     # plt.figure()
 
+    ct = datetime.datetime.now()
+    timestamp = ct.strftime("%Y_%m_%d@%H_%M_%S")
+    print(timestamp)
+    input("tgi friday!")
+
     # check first time runner
     bmask_path = os.path.realpath("./bmask")
     bmask_table_path = os.path.realpath("./bmask_table")
@@ -454,7 +460,7 @@ if __name__ == '__main__':
     # check format in batch
     file_lookup_list = file_ext_check(droplet_path, IMG_FORMAT)
     print(file_lookup_list)
-    input("please press enter to proceed...")
+    # input("please press enter to proceed...")
 
     ring_data_project = None
     branch_data_project = None
@@ -713,8 +719,8 @@ if __name__ == '__main__':
                 t += 1
 
                 # save and export as csv
-                ring_data_project.write_csv(os.path.realpath(output_path + '/ring.csv'))
-                branch_data_project.write_csv(os.path.realpath(output_path + '/branch.csv'))
+                ring_data_project.write_csv(os.path.realpath(output_path + '/ring_' + timestamp + '.csv'))
+                branch_data_project.write_csv(os.path.realpath(output_path + '/branch_' + timestamp + '.csv'))
 
                 # plt.imshow(edge_c, interpolation='nearest')
                 # plt.show()
@@ -767,18 +773,26 @@ if __name__ == '__main__':
 
             plot_data = [[{
                 'ring_inten': 0,
-                'contact_inten': 0
+                'contact_inten': 0,
+                'overlap': 0
             } for _ in range(RING_THICKNESS)] for _ in range(arr_cen.shape[0])]
 
+            ring_data_image_clone = ring_data_image.clone()
+            ring_data_image_clone = ring_data_image_clone.with_columns([
+                pl.when(pl.col("overlap") == 1).then(pl.lit(float("NaN"))).otherwise(pl.col('ring_inten')).keep_name(),
+                pl.when(pl.col("overlap") == 1).then(pl.lit(float("NaN"))).otherwise(pl.col('contact_inten')).keep_name()
+            ])
+            # # print(ring_data_image_clone)
+            # ring_data_image_clone.write_csv(os.path.realpath(output_path + '/test.csv'))
+            # input("press enter")
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
-                layer_data = copy.deepcopy(
-                    ring_data_image \
-                        .filter((pl.col("overlap") == 0) & (pl.col("object_id") == row["object_id"])) \
+                layer_data = ring_data_image_clone\
+                        .filter((pl.col("object_id") == row["object_id"])) \
                         .groupby("layer", maintain_order=True).all()
-                )
                 ring_data = layer_data["ring_inten"].to_list()
                 contact_data = layer_data['contact_inten'].to_list()
                 index_data = layer_data["index"].to_list()
+                overlap_data = layer_data["overlap"].to_list()
                 # print(index_data)
                 for x in range(RING_THICKNESS):
                     ring_inter = interpolate.interp1d(index_data[x], ring_data[x])
@@ -825,30 +839,40 @@ if __name__ == '__main__':
             r = int(arr_cen.shape[0] / c + 1)
             print(c, r, controls_plot)
 
-            fig, ax2 = plt.subplots(r, c, layout="constrained")
+            fig, ax2 = plt.subplots(r, c, sharex=True, sharey=True, figsize=(4*c, 3*r))
             fig.suptitle(f"intensity plot for image: {item['file']}")
-
+            fig.subplots_adjust(hspace=0, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
                 table_row = i // c
                 table_col = i % c
                 axfreq_droplet = plt.axes([1, 0.95, 0.1, 0.01])  # right, top, length, width
                 slider_droplet = Slider(axfreq_droplet, label="", valmin=i, valmax=i, valstep=1)
                 ax_twin = ax2[table_row, table_col].twinx()
-                controls_plot[i][0] = iplt.plot(show_ring_plots, layer=slider_layer, droplet_index=slider_droplet,
+                controls_plot[i][0] = iplt.plot(show_ring_plots, label="halo", layer=slider_layer, droplet_index=slider_droplet,
                                                 ax=ax2[table_row, table_col])
-                controls_plot[i][1] = iplt.plot(show_contact_plots, color="red", layer=slider_layer, droplet_index=slider_droplet,
+                controls_plot[i][1] = iplt.plot(show_contact_plots, label="FABCCON", color="red", layer=slider_layer, droplet_index=slider_droplet,
                                                 ax=ax_twin)
                 # controls_plot[i][0] = iplt.plot(show_plots, layer=slider, oid=row["object_id"], focus="ring", ax=ax2[i//c, i%c])
                 # control_contact = iplt.plot(show_plots, layer=slider, oid=row['object_id'], focus="contact",
                 #                          ax=ax2[i // c, i % c])
+
+
                 ax2[table_row, table_col].set_ylim([0, plot_y_max_droplet])
-                ax2[table_row, table_col].set_title(f"object_id: {row['object_id']}")
+                ax2[table_row, table_col].set_title(f"object_id: {row['object_id']}", y=1.0, pad=-14)
                 ax2[table_row, table_col].set_xlabel('distance (px)')
-                ax2[table_row, table_col].set_ylabel('raw intensity')
+                if i == c - 1:
+                    ax2[table_row, table_col].legend(loc="upper left")
+                    ax_twin.legend(loc='upper right')
+                    # fig.legend()
+                if table_col == 0:
+                    ax2[table_row, table_col].set_ylabel('raw intensity')
                 ax_twin.set_ylim([0, plot_y_max_contact])
                 ax2[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
-                ax_twin.tick_params(axis="y", labelcolor="red")
-            plt.get_current_fig_manager().window.setGeometry(650, 0, 640*2, 480*2)
+                if table_col != c - 1:
+                    ax_twin.yaxis.set_visible(False)
+                else:
+                    ax_twin.tick_params(axis="y", labelcolor="red")
+            # plt.get_current_fig_manager().window.setGeometry(650, 0, 240*c, 160*r)
 
 
             # fig_layer = [[] for _ in range(RING_THICKNESS)]
@@ -867,5 +891,5 @@ if __name__ == '__main__':
 
             plt.show()
             print("==============================================NEW IMAGE=================================================")
-            ring_data_image.write_csv(os.path.realpath(output_path+'/'+item['file']+'.csv'))
+            ring_data_image.write_csv(os.path.realpath(output_path+'/'+item['file']+'_'+ timestamp + '.csv'))
     print(ring_data_project.shape)
