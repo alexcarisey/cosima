@@ -49,7 +49,7 @@ ILASTIK_COLS = ['object_id',
 
 RING_THICKNESS = 5
 WALKER_MAX = 253
-X_NORMALIZE = 400
+X_NORMALIZE = 200
 
 
 def time_elapsed(func):
@@ -500,8 +500,8 @@ if __name__ == '__main__':
             contact_1d_sort = np.sort(arr_contact, axis=None)
             background_droplet = np.sum(droplet_1d_sort[0:100]) / 100
             background_contact = np.sum(contact_1d_sort[0:100]) / 100
-            print(background_droplet, background_contact)
-            input("please check background value and press enter to proceed...")
+            # print(background_droplet, background_contact)
+            # input("please check background value and press enter to proceed...")
 
             # subtract background intensity
             arr_droplet -= int(background_droplet)
@@ -511,9 +511,8 @@ if __name__ == '__main__':
             plot_y_max_contact = 0
             # print(background_contact,background_droplet)
             map_layer = np.full((RING_THICKNESS + 1, np.shape(edge_copy)[0], np.shape(edge_copy)[1]), 0)
-            ring_data_layer = None
-            branch_data_layer = None
-
+            ring_data_image = None
+            branch_data_image = None
 
             while t < RING_THICKNESS:
                 for i, row in enumerate(arr_cen.iter_rows(named=True)):
@@ -564,7 +563,7 @@ if __name__ == '__main__':
                     if t == 0:
                         y_Start = cen_y
                     else:
-                        start_last_layer = ring_data_layer.filter(
+                        start_last_layer = ring_data_image.filter(
                             (pl.col("object_id") == row['object_id']) & (pl.col("layer") == t) & (pl.col("index") == 0))
                         # print(start_last_layer)
                         y_Start = start_last_layer['ring_y'][0]
@@ -609,15 +608,15 @@ if __name__ == '__main__':
                     ring_data = pl.DataFrame(ring_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
                     branch_data = pl.DataFrame(branch_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
                     print(ring_data, branch_data)
-                    if ring_data_layer is None:
-                        ring_data_layer = ring_data.clone()
+                    if ring_data_image is None:
+                        ring_data_image = ring_data.clone()
                     else:
-                        ring_data_layer = pl.concat([ring_data_layer, ring_data])
+                        ring_data_image = pl.concat([ring_data_image, ring_data])
 
-                    if branch_data_layer is None:
-                        branch_data_layer = branch_data.clone()
+                    if branch_data_image is None:
+                        branch_data_image = branch_data.clone()
                     else:
-                        branch_data_layer = pl.concat([branch_data_layer, branch_data])
+                        branch_data_image = pl.concat([branch_data_image, branch_data])
 
                     if ring_data_project is None:
                         ring_data_project = ring_data.clone()
@@ -709,7 +708,7 @@ if __name__ == '__main__':
                 map_filtered[map_filtered >= 254] = (t + 1) * 255
                 map_layer[-1] += map_filtered
 
-                print(ring_data_layer, branch_data_layer)
+                print(ring_data_image, branch_data_image)
                 # increase thickness
                 t += 1
 
@@ -747,8 +746,8 @@ if __name__ == '__main__':
 
             # ipywidgets.interact(plot_layer, l=(0,RING_THICKNESS+1, 1))
             # input("press enter")
-            plot_y_max_droplet = np.sort(ring_data_layer['ring_inten'].to_numpy(), axis=None)[-1] + 1000
-            plot_y_max_contact = np.sort(ring_data_layer['contact_inten'].to_numpy(), axis=None)[-1] + 100
+            plot_y_max_droplet = np.sort(ring_data_image['ring_inten'].to_numpy(), axis=None)[-1] + 1000
+            plot_y_max_contact = np.sort(ring_data_image['contact_inten'].to_numpy(), axis=None)[-1] + 100
             print(plot_y_max_droplet, plot_y_max_contact)
             # input("press enter")
 
@@ -756,10 +755,14 @@ if __name__ == '__main__':
                 return map_layer[layer - 1]
 
 
-            def show_plots(layer, droplet_index):
+            def show_ring_plots(layer, droplet_index):
                 # print(droplet_index, layer - 1, plot_data[droplet_index][layer - 1]['ring_inten'][0])
                 return plot_data[droplet_index][layer - 1]['ring_inten']
 
+
+            def show_contact_plots(layer, droplet_index):
+                # print(droplet_index, layer - 1, plot_data[droplet_index][layer - 1]['ring_inten'][0])
+                return plot_data[droplet_index][layer - 1]['contact_inten']
 
 
             plot_data = [[{
@@ -769,7 +772,7 @@ if __name__ == '__main__':
 
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
                 layer_data = copy.deepcopy(
-                    ring_data_layer \
+                    ring_data_image \
                         .filter((pl.col("overlap") == 0) & (pl.col("object_id") == row["object_id"])) \
                         .groupby("layer", maintain_order=True).all()
                 )
@@ -780,21 +783,21 @@ if __name__ == '__main__':
                 for x in range(RING_THICKNESS):
                     ring_inter = interpolate.interp1d(index_data[x], ring_data[x])
                     contact_inter = interpolate.interp1d(index_data[x], contact_data[x])
-                    # plot_data[i][x]['index'] = index_data[x]
-                    new_x = np.arange(index_data[x][0], index_data[x][-1],
-                                      (index_data[x][-1] - index_data[x][0]) / X_NORMALIZE)
-                    plot_data[i][x]['ring_inten'] = ring_inter(new_x)[:X_NORMALIZE]
-                    plot_data[i][x]['contact_inten'] = contact_inter(new_x)[:X_NORMALIZE]
+                    new_x = np.linspace(index_data[x][0], index_data[x][-1], X_NORMALIZE)
+                    plot_data[i][x]['ring_inten'] = ring_inter(new_x)
+                    plot_data[i][x]['contact_inten'] = contact_inter(new_x)
+
+                    # new_x = np.arange(index_data[x][0], index_data[x][-1],
+                    #                   (index_data[x][-1] - index_data[x][0]) / X_NORMALIZE)
+                    # try:
+                    #     plot_data[i][x]['ring_inten'] = ring_inter(new_x)[:X_NORMALIZE]
+                    # except ValueError:
+                    #     print(index_data[x][0], index_data[x][-1], (index_data[x][-1] - index_data[x][0]) / X_NORMALIZE, new_x)
+                    # plot_data[i][x]['contact_inten'] = contact_inter(new_x)[:X_NORMALIZE]
                     # print(layer_data["object_id"][0][0], index_data[x][0], index_data[x][-1], len(index_data[x]))
                     # print(layer_data["object_id"][0][0],  len(new_x), len(plot_data[i][x]['ring_inten']))
                     # print("=====================================================================================")
-                # print(plot_data[i])
 
-                # controls_plot[i][0] = iplt.plot(show_plots, layer=slider, oid=row["object_id"], focus="ring", ax=ax2[i//c, i%c])
-                # control_contact = iplt.plot(show_plots, layer=slider, oid=row['object_id'], focus="contact",
-                #                          ax=ax2[i // c, i % c])
-
-            # print(plot_data)
             # plotting map
             fig, ax = plt.subplots()
             plt.subplots_adjust(top=0.9)
@@ -830,8 +833,11 @@ if __name__ == '__main__':
                 table_col = i % c
                 axfreq_droplet = plt.axes([1, 0.95, 0.1, 0.01])  # right, top, length, width
                 slider_droplet = Slider(axfreq_droplet, label="", valmin=i, valmax=i, valstep=1)
-                controls_plot[i][0] = iplt.plot(show_plots, layer=slider_layer, droplet_index=slider_droplet,
+                ax_twin = ax2[table_row, table_col].twinx()
+                controls_plot[i][0] = iplt.plot(show_ring_plots, layer=slider_layer, droplet_index=slider_droplet,
                                                 ax=ax2[table_row, table_col])
+                controls_plot[i][1] = iplt.plot(show_contact_plots, color="red", layer=slider_layer, droplet_index=slider_droplet,
+                                                ax=ax_twin)
                 # controls_plot[i][0] = iplt.plot(show_plots, layer=slider, oid=row["object_id"], focus="ring", ax=ax2[i//c, i%c])
                 # control_contact = iplt.plot(show_plots, layer=slider, oid=row['object_id'], focus="contact",
                 #                          ax=ax2[i // c, i % c])
@@ -839,7 +845,10 @@ if __name__ == '__main__':
                 ax2[table_row, table_col].set_title(f"object_id: {row['object_id']}")
                 ax2[table_row, table_col].set_xlabel('distance (px)')
                 ax2[table_row, table_col].set_ylabel('raw intensity')
-            plt.get_current_fig_manager().window.setGeometry(650, 0, 640*3, 480*3)
+                ax_twin.set_ylim([0, plot_y_max_contact])
+                ax2[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
+                ax_twin.tick_params(axis="y", labelcolor="red")
+            plt.get_current_fig_manager().window.setGeometry(650, 0, 640*2, 480*2)
 
 
             # fig_layer = [[] for _ in range(RING_THICKNESS)]
@@ -857,6 +866,6 @@ if __name__ == '__main__':
             #         ax_layer[table_row, table_col].plot(droplet['ring_inten'].to_numpy())
 
             plt.show()
-            print(
-                "==============================================NEW IMAGE=================================================")
+            print("==============================================NEW IMAGE=================================================")
+            ring_data_image.write_csv(os.path.realpath(output_path+'/'+item['file']+'.csv'))
     print(ring_data_project.shape)
