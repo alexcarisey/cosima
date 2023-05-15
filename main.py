@@ -20,7 +20,8 @@ np.set_printoptions(threshold=sys.maxsize)
 np.set_printoptions(linewidth=300)
 
 IMG_FORMAT = {".nd2": 0,
-              ".tif": 0
+              ".tif": 0,
+              ".csv": 0,
               }
 
 TABLE_FORMAT = {".csv": 0}
@@ -52,6 +53,15 @@ RING_THICKNESS = 5
 WALKER_MAX = 253
 X_NORMALIZE = 200
 
+if len(sys.argv) == 3:
+    if sys.argv[1]:
+        INPUT_PATH = os.path.realpath(sys.argv[1])
+
+    if sys.argv[2]:
+        RING_THICKNESS = int(sys.argv[2])
+else:
+    RING_THICKNESS = 5
+    INPUT_PATH = os.path.realpath(r'./input')
 
 def time_elapsed(func):
     # This function shows the execution time of
@@ -70,16 +80,17 @@ def file_ext_check(input_path, img_format):
     print("checking format...")
     print(img_format)
 
-    if not os.path.exists(bmask_path) or not os.path.exists(bmask_table_path):
-        print("missing necessary folder...")
-        os.makedirs(bmask_path)
-        os.makedirs(bmask_table_path)
+    # if not os.path.exists(bmask_path) or not os.path.exists(bmask_table_path):
+    #     print("missing necessary folder...")
+    #     os.makedirs(bmask_path)
+    #     os.makedirs(bmask_table_path)
 
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
-    file_list = os.listdir(input_path)
-    check_list = [[] for _ in range(len(file_list))]
+    file_list = np.array(os.listdir(input_path))
+    print(file_list)
+    type_list = [[] for _ in range(len(file_list))]
 
     for i_file, row_file in enumerate(file_list):
         # Split the extension from the path and make it lowercase.
@@ -87,22 +98,36 @@ def file_ext_check(input_path, img_format):
         # .os.path.splitext(row_file)[0]
         ext = os.path.splitext(row_file)[-1].lower()
         print(i_file, name, ext)
-        if ext == ".tif":
-            # allocate mask to the according folder
-            if re.search("_Object Predictions", name):
-                print("src: ", os.path.realpath(input_path + '/' + row_file))
-                print("src: ", os.path.realpath(bmask_table_path + '/' + row_file))
-                shutil.move(os.path.realpath(input_path + '/' + row_file), os.path.realpath(bmask_path + '/' + row_file))
-                # os.replace(os.path.realpath(input_path + '/' + row_file), os.path.realpath(bmask_path + '/' + row_file))
-            else:
-                img_format[ext] += 1
-                check_list[i_file] = True  # not useful here
-                file_list[i_file] = name
-        if ext == ".csv":
-            shutil.move(os.path.realpath(input_path + '/' + row_file),
-                        os.path.realpath(bmask_table_path + '/' + row_file))
+        file_list[i_file] = name
+        if ext in img_format.keys():
+            if re.search("_table", name) and ext == ".csv":
+                type_list[i_file] = 'bmask_table'
+            if ext == ".tif":
+                if re.search("_Object Predictions", name):
+                    type_list[i_file] = 'bmask'
+                else:
+                    if re.search(" C=0_", name):
+                        type_list[i_file] = 'halo'
+                    if re.search(" C=1_", name):
+                        type_list[i_file] = 'contact'
+        else:
+            print('place holder for file error check exception')
+        # if ext == ".tif":
+        #     # allocate mask to the according folder
+        #     if re.search("_Object Predictions", name):
+        #         print("src: ", os.path.realpath(input_path + '/' + row_file))
+        #         print("src: ", os.path.realpath(bmask_table_path + '/' + row_file))
+        #         shutil.move(os.path.realpath(input_path + '/' + row_file), os.path.realpath(bmask_path + '/' + row_file))
+        #         # os.replace(os.path.realpath(input_path + '/' + row_file), os.path.realpath(bmask_path + '/' + row_file))
+        #     else:
+        #         img_format[ext] += 1
+        #         check_list[i_file] = True  # not useful here
+        #         file_list[i_file] = name
+        # if ext == ".csv":
+        #     shutil.move(os.path.realpath(input_path + '/' + row_file),
+        #                 os.path.realpath(bmask_table_path + '/' + row_file))
 
-    file_table = pl.DataFrame({"file": file_list, "droplet": check_list})
+    file_table = pl.DataFrame({"file": file_list, "type": type_list})
     return file_table
 
 
@@ -447,7 +472,10 @@ if __name__ == '__main__':
     ct = datetime.datetime.now()
     timestamp = ct.strftime("D%Y_%m_%dT%H_%M_%S")
     print(timestamp)
-    # input("tgi friday!")
+
+
+    print(sys.argv, INPUT_PATH, RING_THICKNESS)
+    input("...")
 
     # check first time runner
     bmask_path = os.path.realpath("./bmask")
@@ -458,47 +486,59 @@ if __name__ == '__main__':
     print(bmask_path, bmask_table_path, droplet_path, contact_path)
 
     # check format in batch
-    file_lookup_list = file_ext_check(droplet_path, IMG_FORMAT)
+    file_lookup_list = file_ext_check(INPUT_PATH, IMG_FORMAT)
     print(file_lookup_list)
-    # input("please press enter to proceed...")
+    input("please press enter to proceed...")
 
     ring_data_project = None
     branch_data_project = None
 
     # load images and tables from file_lookup_list
     for item in file_lookup_list.iter_rows(named=True):
-        if item['droplet'] is True:
+        if item['type'] == 'halo':
             # lazy load centroids table
-            print(os.path.realpath(bmask_table_path + '/' + item['file'] + "_table.csv"))
-            arr_cen = pl.scan_csv(os.path.realpath(bmask_table_path + '/' + item['file'] + "_table.csv")) \
-                .select(ILASTIK_COLS) \
-                .filter(pl.col("Predicted Class") == "LipidDroplets")
-            arr_cen = arr_cen.collect()
-            print(arr_cen, arr_cen.shape)
+            try:
+                print(os.path.realpath(bmask_table_path + '/' + item['file'] + "_table.csv"))
+                arr_cen = pl.scan_csv(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_table.csv")) \
+                    .select(ILASTIK_COLS) \
+                    .filter(pl.col("Predicted Class") == "LipidDroplets")
+                arr_cen = arr_cen.collect()
+                print(arr_cen, arr_cen.shape)
+            except:
+                print('place holder for error csv')
 
             # form outline from bmask
             # print()
-            map_bmask = Image.open(os.path.realpath(bmask_path + '/' + item['file'] + "_Object Predictions.tif"))
-            arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
-            edge_copy = arr_bmask.copy()
-            gen_outline_bmask(edge_copy)
+            try:
+                map_bmask = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_Object Predictions.tif"))
+                arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
+                edge_copy = arr_bmask.copy()
+                gen_outline_bmask(edge_copy)
 
-            plt.imshow(edge_copy)
-            plt.show()
+                plt.imshow(edge_copy)
+                plt.show()
+            except:
+                print('place holder for error bmask')
 
             # load droplet intensity
-            map_droplet = Image.open(os.path.realpath(droplet_path + '/' + item['file'] + ".tif"))
-            arr_droplet = np.array(map_droplet)
-            plt.imshow(arr_droplet)
-            plt.show()
+            try:
+                map_droplet = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + ".tif"))
+                arr_droplet = np.array(map_droplet)
+                plt.imshow(arr_droplet)
+                plt.show()
+            except:
+                print('place holder for error halo img')
 
             # load contact intensity
-            # print(os.path.realpath(contact_path + '/' + item['file'] + ".tif"))
-            map_contact = Image.open(
-                os.path.realpath(contact_path + '/' + item['file'].replace(" C=0_", " C=1_") + ".tif"))
-            arr_contact = np.array(map_contact)
-            plt.imshow(arr_contact)
-            plt.show()
+            try:
+                # print(os.path.realpath(contact_path + '/' + item['file'] + ".tif"))
+                map_contact = Image.open(
+                    os.path.realpath(INPUT_PATH + '/' + item['file'].replace(" C=0_", " C=1_") + ".tif"))
+                arr_contact = np.array(map_contact)
+                plt.imshow(arr_contact)
+                plt.show()
+            except:
+                print('place holder for error contact img')
 
             t = 0
 

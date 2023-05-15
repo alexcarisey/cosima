@@ -12,11 +12,11 @@ class App(tk.Tk):
         def exit_gui():
             print(folder_path.get(), ring_thickness.get())
             print("parameter collected, extracting data...")
-            os.system("python main.py")
+            os.system("python main.py " + folder_path.get() + " " + str(ring_thickness.get()))
             sys.exit()
 
         def get_input_path():
-            INPUT_PATH = r'{}'.format(askdirectory())
+            INPUT_PATH = r'{}'.format(askdirectory(initialdir=r'./input', mustexist=True))
             folder_path.set(INPUT_PATH)
             print(INPUT_PATH)
 
@@ -62,7 +62,7 @@ class App(tk.Tk):
 
         ring_slider = ttk.Scale(
             self,
-            from_=0,
+            from_=1,
             to=20,
             orient='horizontal',  # horizontal
             variable=ring_thickness,
