@@ -445,9 +445,9 @@ if __name__ == '__main__':
     # plt.figure()
 
     ct = datetime.datetime.now()
-    timestamp = ct.strftime("%Y_%m_%d@%H_%M_%S")
+    timestamp = ct.strftime("D%Y_%m_%dT%H_%M_%S")
     print(timestamp)
-    input("tgi friday!")
+    # input("tgi friday!")
 
     # check first time runner
     bmask_path = os.path.realpath("./bmask")
@@ -872,24 +872,39 @@ if __name__ == '__main__':
                     ax_twin.yaxis.set_visible(False)
                 else:
                     ax_twin.tick_params(axis="y", labelcolor="red")
-            # plt.get_current_fig_manager().window.setGeometry(650, 0, 240*c, 160*r)
 
+            for x in range(RING_THICKNESS):
+                fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c, sharex=True, sharey=True, figsize=(c*4, r*3))
+                fig_layer.suptitle(f"intensity plot for layer: {x+1}")
+                fig_layer.subplots_adjust(hspace=0, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
+                for i, row in enumerate(arr_cen.iter_rows(named=True)):
+                    table_row = i // c
+                    table_col = i % c
+                    ax_layer_twin = ax_layer[table_row, table_col].twinx()
+                    ax_layer[table_row, table_col].plot(plot_data[i][x]['ring_inten'], label="halo")
+                    ax_layer_twin.plot(plot_data[i][x]['contact_inten'], label="FABCCON", color="red")
 
-            # fig_layer = [[] for _ in range(RING_THICKNESS)]
-            # ax_layer = [[] for _ in range(RING_THICKNESS)]
-            # for x in range(RING_THICKNESS):
-            #     fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c)
-            #     fig.suptitle(f"intensity plot for layer: {controls.params['layer']}")
-            #     for i, row in enumerate(arr_cen.iter_rows(named=True)):
-            #         droplet = ring_datatable.filter(
-            #             (pl.col('layer') == x + 1) & (pl.col('object_id') == row['object_id']) & (
-            #                         pl.col('overlap') == 0))
-            #         print(droplet, row['object_id'])
-            #         table_row = i // c
-            #         table_col = i % c
-            #         ax_layer[table_row, table_col].plot(droplet['ring_inten'].to_numpy())
+                    ax_layer[table_row, table_col].set_ylim([0, plot_y_max_droplet])
+                    ax_layer[table_row, table_col].set_title(f"object_id: {row['object_id']}", y=1.0, pad=-14)
+                    ax_layer[table_row, table_col].set_xlabel('distance (px)')
+                    if i == c - 1:
+                        ax_layer[table_row, table_col].legend(loc="upper left")
+                        ax_layer_twin.legend(loc='upper right')
+                        # fig.legend()
+                    if table_col == 0:
+                        ax_layer[table_row, table_col].set_ylabel('raw intensity')
+                    ax_layer_twin.set_ylim([0, plot_y_max_contact])
+                    ax_layer[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
+                    if table_col != c - 1:
+                        ax_layer_twin.yaxis.set_visible(False)
+                    else:
+                        ax_layer_twin.tick_params(axis="y", labelcolor="red")
+                plt.savefig(os.path.realpath(output_path + '/' + item['file'] + '_layer' + str(x+1) + '_' + timestamp + '.png'))
 
             plt.show()
+
+
+
             print("==============================================NEW IMAGE=================================================")
             ring_data_image.write_csv(os.path.realpath(output_path+'/'+item['file']+'_'+ timestamp + '.csv'))
     print(ring_data_project.shape)
