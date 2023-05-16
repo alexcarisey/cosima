@@ -5,23 +5,19 @@ import tkinter as tk
 from tkinter import ttk
 
 
-
-
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
 
-
         def exit_gui():
-            parameter_setting = {'INPUT_PATH': folder_path.get(),
-                                 'RING_THICKNESS': ring_thickness.get(),
-                                 'PG_START': pg_start.get(),
-                                 'PG_END': pg_end.get(),
-                                 'BK_SUB': background_sub.get(),
-                                 'SHOW_OVERLAP': show_overlap.get()
+            parameter_setting = {"INPUT_PATH": folder_path.get(),
+                                 "RING_THICKNESS": ring_thickness.get(),
+                                 "PG_START": pg_start.get(),
+                                 "PG_END": pg_end.get(),
+                                 "BK_SUB": background_sub.get(),
+                                 "SHOW_OVERLAP": show_overlap.get()
                                  }
             print(parameter_setting)
-
 
             if pg_end.get() > ring_thickness.get():
                 err_msg_lb.configure(text="Wrong setting: projection end layer exceed thickness!")
@@ -34,8 +30,8 @@ class App(tk.Tk):
 
             else:
                 err_msg_lb.configure(text="valid setting, proceed to analysis...")
-                # os.system("python main.py " + folder_path.get() + " " + str(ring_thickness.get()))
-                # sys.exit()
+                os.system("python main.py " + str(parameter_setting))
+                sys.exit()
 
         def get_input_path():
             INPUT_PATH = r'{}'.format(askdirectory(initialdir=r'./input', mustexist=True))
@@ -65,7 +61,7 @@ class App(tk.Tk):
         def get_current_value(part):
             return part.get()
 
-        self.geometry('450x450')
+        self.geometry('450x300')
         self.resizable(0, 0)
         self.title('COSIMA')
 

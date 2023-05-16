@@ -1,6 +1,7 @@
 import os
 import sys
 import copy
+import json
 import datetime
 from time import time
 import re
@@ -53,7 +54,14 @@ RING_THICKNESS = 5
 WALKER_MAX = 253
 X_NORMALIZE = 400
 
-if len(sys.argv) == 3:
+print(sys.stdin)
+print(rf'{sys.argv[1]}'.replace("\'", "\""))
+PARAMETERS = json.loads(sys.argv[1])
+print(PARAMETERS)
+input(',.......')
+
+
+if len(sys.argv) > 1:
     if sys.argv[1]:
         INPUT_PATH = os.path.realpath(sys.argv[1])
 
