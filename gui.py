@@ -39,8 +39,8 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=3)
 
-        folder_path = tk.StringVar()
-        ring_thickness = tk.IntVar()
+        folder_path = tk.StringVar(self, value=r'./input')
+        ring_thickness = tk.IntVar(self, value=1)
 
         # heading
         heading = ttk.Label(self, text='Parameters Setup', style='Heading.TLabel')

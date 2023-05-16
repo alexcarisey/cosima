@@ -96,10 +96,14 @@ fabric.properties
 /workspace.xml
 
 # local only data
-output/
+input/
+output*
 contact/
 droplet/
 bmask/
 bmask_table/
 test/
 playground.py
+*.csv
+*.png
+*.eps

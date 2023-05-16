@@ -51,7 +51,7 @@ ILASTIK_COLS = ['object_id',
 
 RING_THICKNESS = 5
 WALKER_MAX = 253
-X_NORMALIZE = 200
+X_NORMALIZE = 400
 
 if len(sys.argv) == 3:
     if sys.argv[1]:
@@ -62,6 +62,7 @@ if len(sys.argv) == 3:
 else:
     RING_THICKNESS = 5
     INPUT_PATH = os.path.realpath(r'./input')
+
 
 def time_elapsed(func):
     # This function shows the execution time of
@@ -85,8 +86,8 @@ def file_ext_check(input_path, img_format):
     #     os.makedirs(bmask_path)
     #     os.makedirs(bmask_table_path)
 
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
+    # if not os.path.exists(output_path):
+    #     os.makedirs(output_path)
 
     file_list = np.array(os.listdir(input_path))
     print(file_list)
@@ -478,13 +479,13 @@ if __name__ == '__main__':
     input("...")
 
     # check first time runner
-    bmask_path = os.path.realpath("./bmask")
-    bmask_table_path = os.path.realpath("./bmask_table")
-    droplet_path = os.path.realpath("./droplet")
-    contact_path = os.path.realpath("./contact")
-    output_path = os.path.realpath("./output")
-    print(bmask_path, bmask_table_path, droplet_path, contact_path)
-
+    # bmask_path = os.path.realpath("./bmask")
+    # bmask_table_path = os.path.realpath("./bmask_table")
+    # droplet_path = os.path.realpath("./droplet")
+    # contact_path = os.path.realpath("./contact")
+    output_path = os.path.realpath("./output_" + timestamp)
+    # print(bmask_path, bmask_table_path, droplet_path, contact_path)
+    os.makedirs(output_path)
     # check format in batch
     file_lookup_list = file_ext_check(INPUT_PATH, IMG_FORMAT)
     print(file_lookup_list)
@@ -498,7 +499,7 @@ if __name__ == '__main__':
         if item['type'] == 'halo':
             # lazy load centroids table
             try:
-                print(os.path.realpath(bmask_table_path + '/' + item['file'] + "_table.csv"))
+                print(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_table.csv"))
                 arr_cen = pl.scan_csv(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_table.csv")) \
                     .select(ILASTIK_COLS) \
                     .filter(pl.col("Predicted Class") == "LipidDroplets")
@@ -564,7 +565,7 @@ if __name__ == '__main__':
                 for i, row in enumerate(arr_cen.iter_rows(named=True)):
                     print("i:", i)
                     # allocate table for ring data
-                    ring_len = int(row['Size in pixels']) * 10
+                    ring_len = int(row['Size in pixels']) * 10  # could be too small
                     print(row['object_id'], ring_len)
                     overlap_xy = []
                     closed = [False]
@@ -812,10 +813,10 @@ if __name__ == '__main__':
 
 
             plot_data = [[{
-                'ring_inten': 0,
-                'contact_inten': 0,
-                'overlap': 0
-            } for _ in range(RING_THICKNESS)] for _ in range(arr_cen.shape[0])]
+                'ring_inten': None,
+                'contact_inten': None,
+                'overlap': None
+            } for _ in range(RING_THICKNESS+1)] for _ in range(arr_cen.shape[0])]
 
             ring_data_image_clone = ring_data_image.clone()
             ring_data_image_clone = ring_data_image_clone.with_columns([
@@ -840,6 +841,12 @@ if __name__ == '__main__':
                     new_x = np.linspace(index_data[x][0], index_data[x][-1], X_NORMALIZE)
                     plot_data[i][x]['ring_inten'] = ring_inter(new_x)
                     plot_data[i][x]['contact_inten'] = contact_inter(new_x)
+                    # if x == 0:
+                    #     plot_data[i][-1]['ring_inten'] = ring_inter(new_x)
+                    #     plot_data[i][-1]['contact_inten'] = contact_inter(new_x)
+                    # else:
+                    #     plot_data[i][-1]['ring_inten'] += plot_data[i][x]['ring_inten']
+                    #     plot_data[i][-1]['contact_inten'] += plot_data[i][x]['contact_inten']
 
                     # new_x = np.arange(index_data[x][0], index_data[x][-1],
                     #                   (index_data[x][-1] - index_data[x][0]) / X_NORMALIZE)
