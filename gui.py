@@ -1,5 +1,7 @@
 import os
 import sys
+import json
+import ast
 from tkinter.filedialog import askdirectory
 import tkinter as tk
 from tkinter import ttk
@@ -17,7 +19,7 @@ class App(tk.Tk):
                                  "BK_SUB": background_sub.get(),
                                  "SHOW_OVERLAP": show_overlap.get()
                                  }
-            print(parameter_setting)
+            print(str(parameter_setting))
 
             if pg_end.get() > ring_thickness.get():
                 err_msg_lb.configure(text="Wrong setting: projection end layer exceed thickness!")
@@ -30,8 +32,9 @@ class App(tk.Tk):
 
             else:
                 err_msg_lb.configure(text="valid setting, proceed to analysis...")
-                os.system("python main.py " + str(parameter_setting))
-                sys.exit()
+                parameters = str(parameter_setting).replace(" ", "")
+                os.system("python main.py " + json.dumps(parameters))
+                self.destroy()
 
         def get_input_path():
             INPUT_PATH = r'{}'.format(askdirectory(initialdir=r'./input', mustexist=True))
@@ -61,7 +64,7 @@ class App(tk.Tk):
         def get_current_value(part):
             return part.get()
 
-        self.geometry('450x300')
+        self.geometry('450x320')
         self.resizable(0, 0)
         self.title('COSIMA')
 

@@ -42,6 +42,48 @@ ILASTIK_COLS = ['object_id',
                 'Bounding Box Minimum_1',
                 'Diameter']
 
+WALKER_MAX = 253
+X_NORMALIZE = 400
+RING_THICKNESS, PG_START, PG_END = int, int, int
+BK_SUB, SHOW_OVERLAP = bool, bool
+INPUT_PATH = str
+if len(sys.argv) == 1:
+    RING_THICKNESS = 5
+    WALKER_MAX = 253
+    X_NORMALIZE = 400
+    INPUT_PATH = os.path.realpath(r'./input')
+    BK_SUB = True
+    SHOW_OVERLAP = True
+    PG_START = 0
+    PG_END = 1
+
+# if len(sys.argv) > 1:
+else:
+
+    PARAMETERS = eval(sys.argv[1])
+    print(PARAMETERS)
+    print(PARAMETERS['BK_SUB'], PARAMETERS['SHOW_OVERLAP'])
+    if PARAMETERS['INPUT_PATH']:
+        print(PARAMETERS['INPUT_PATH'])
+        INPUT_PATH = PARAMETERS['INPUT_PATH']
+
+    if PARAMETERS['RING_THICKNESS']:
+        RING_THICKNESS = PARAMETERS['RING_THICKNESS']
+
+    if not PARAMETERS['BK_SUB']:
+        print(PARAMETERS['BK_SUB'])
+        BK_SUB = bool(PARAMETERS['BK_SUB'])
+
+    if not PARAMETERS['SHOW_OVERLAP']:
+        print(PARAMETERS['SHOW_OVERLAP'])
+        SHOW_OVERLAP = bool(PARAMETERS['SHOW_OVERLAP'])
+
+    if PARAMETERS['PG_START']:
+        PG_START = PARAMETERS['PG_START']
+
+    if PARAMETERS['PG_END']:
+        PG_END = PARAMETERS['PG_END']
+
 # lazy load csv
 # arr_cen = pl.scan_csv(r'./raw_table/C1-ER-LD+3uM DOM 60x confocal Z003.nd2_10006_table.csv') \
 #     .select(ILASTIK_COLS) \
@@ -50,26 +92,15 @@ ILASTIK_COLS = ['object_id',
 #
 # print(arr_cen, arr_cen.shape[0])
 
-RING_THICKNESS = 5
-WALKER_MAX = 253
-X_NORMALIZE = 400
+# print(sys.stdin)
+# print(rf'{sys.argv[1]}'.replace("\'", "\""))
+# PARAMETERS = json.loads(json.dumps(sys.argv[1]))
+# print(PARAMETERS, type(PARAMETERS))
 
-print(sys.stdin)
-print(rf'{sys.argv[1]}'.replace("\'", "\""))
-PARAMETERS = json.loads(sys.argv[1])
-print(PARAMETERS)
-input(',.......')
+# print(eval(sys.argv[1]), type(eval(sys.argv[1])))
 
 
-if len(sys.argv) > 1:
-    if sys.argv[1]:
-        INPUT_PATH = os.path.realpath(sys.argv[1])
 
-    if sys.argv[2]:
-        RING_THICKNESS = int(sys.argv[2])
-else:
-    RING_THICKNESS = 5
-    INPUT_PATH = os.path.realpath(r'./input')
 
 
 def time_elapsed(func):
@@ -469,6 +500,19 @@ def plot_layer(l=0):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+
+    # else:
+    #     RING_THICKNESS = 5
+    #     WALKER_MAX = 253
+    #     X_NORMALIZE = 400
+    #     INPUT_PATH = os.path.realpath(r'./input')
+    #     BK_SUB = True
+    #     SHOW_OVERLAP = True
+    #     PG_START = 0
+    #     PG_END = 1
+
+    err_log = []
+    err_record = {'error type': '', 'source': ''}
     # # change mode to headless for cluster environment
     # ij = imagej.init('sc.fiji:fiji:2.10.0', mode="interactive")
     # print(ij.getVersion())
@@ -481,9 +525,7 @@ if __name__ == '__main__':
     ct = datetime.datetime.now()
     timestamp = ct.strftime("D%Y_%m_%dT%H_%M_%S")
     print(timestamp)
-
-
-    print(sys.argv, INPUT_PATH, RING_THICKNESS)
+    print(INPUT_PATH, RING_THICKNESS, PG_START, PG_END, BK_SUB, SHOW_OVERLAP)
     input("...")
 
     # check first time runner
@@ -559,8 +601,9 @@ if __name__ == '__main__':
             # input("please check background value and press enter to proceed...")
 
             # subtract background intensity
-            arr_droplet -= int(background_droplet)
-            arr_contact -= int(background_contact)
+            if BK_SUB:
+                arr_droplet -= int(background_droplet)
+                arr_contact -= int(background_contact)
 
             plot_y_max_droplet = 0
             plot_y_max_contact = 0
@@ -826,17 +869,23 @@ if __name__ == '__main__':
                 'overlap': None
             } for _ in range(RING_THICKNESS+1)] for _ in range(arr_cen.shape[0])]
 
+            # swap overlapped pixels with NaN
             ring_data_image_clone = ring_data_image.clone()
             ring_data_image_clone = ring_data_image_clone.with_columns([
                 pl.when(pl.col("overlap") == 1).then(pl.lit(float("NaN"))).otherwise(pl.col('ring_inten')).keep_name(),
                 pl.when(pl.col("overlap") == 1).then(pl.lit(float("NaN"))).otherwise(pl.col('contact_inten')).keep_name()
             ])
             # # print(ring_data_image_clone)
-            # ring_data_image_clone.write_csv(os.path.realpath(output_path + '/test.csv'))
+            ring_data_image_clone.write_csv(os.path.realpath(output_path + '/test.csv'))
             # input("press enter")
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
-                layer_data = ring_data_image_clone\
-                        .filter((pl.col("object_id") == row["object_id"])) \
+                if SHOW_OVERLAP:
+                    layer_data = ring_data_image_clone\
+                            .filter((pl.col("object_id") == row["object_id"])) \
+                            .groupby("layer", maintain_order=True).all()
+                else:
+                    layer_data = ring_data_image_clone \
+                        .filter((pl.col("overlap") == 0) & (pl.col("object_id") == row["object_id"])) \
                         .groupby("layer", maintain_order=True).all()
                 ring_data = layer_data["ring_inten"].to_list()
                 contact_data = layer_data['contact_inten'].to_list()
