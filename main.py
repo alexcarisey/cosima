@@ -14,11 +14,12 @@ import mpl_interactions.ipyplot as iplt
 from PIL import Image
 import shutil
 from scipy import interpolate
+from typing import List
 
 pl.Config.set_fmt_str_lengths(1000)
 pl.Config.set_tbl_rows(1000)
 np.set_printoptions(threshold=sys.maxsize)
-np.set_printoptions(linewidth=300)
+np.set_printoptions(linewidth=500)
 
 IMG_FORMAT = {".nd2": 0,
               ".tif": 0,
@@ -42,24 +43,36 @@ ILASTIK_COLS = ['object_id',
                 'Bounding Box Minimum_1',
                 'Diameter']
 
+
+
+ct = datetime.datetime.now()
+timestamp = ct.strftime("D%Y_%m_%dT%H_%M_%S")
+print(timestamp)
+
+output_path = os.path.realpath("./output_" + timestamp)
+os.makedirs(output_path)
+
 WALKER_MAX = 253
 X_NORMALIZE = 400
-RING_THICKNESS, PG_START, PG_END = int, int, int
-BK_SUB, SHOW_OVERLAP = bool, bool
-INPUT_PATH = str
+# RING_THICKNESS, PG_START, PG_END = int, int, int
+BK_SUB, SHOW_OVERLAP = True, True
+# INPUT_PATH = str
+RING_THICKNESS = 5
+INPUT_PATH = os.path.realpath(r'./input')
+# BK_SUB = True
+# SHOW_OVERLAP = True
+PG_START = 0
+PG_END = RING_THICKNESS
 if len(sys.argv) == 1:
     RING_THICKNESS = 5
-    WALKER_MAX = 253
-    X_NORMALIZE = 400
     INPUT_PATH = os.path.realpath(r'./input')
-    BK_SUB = True
-    SHOW_OVERLAP = True
+    # BK_SUB = True
+    # SHOW_OVERLAP = True
     PG_START = 0
-    PG_END = 1
+    PG_END = RING_THICKNESS
 
-# if len(sys.argv) > 1:
-else:
-
+if len(sys.argv) > 1:
+# else:
     PARAMETERS = eval(sys.argv[1])
     print(PARAMETERS)
     print(PARAMETERS['BK_SUB'], PARAMETERS['SHOW_OVERLAP'])
@@ -72,11 +85,11 @@ else:
 
     if not PARAMETERS['BK_SUB']:
         print(PARAMETERS['BK_SUB'])
-        BK_SUB = bool(PARAMETERS['BK_SUB'])
+        BK_SUB = PARAMETERS['BK_SUB']
 
     if not PARAMETERS['SHOW_OVERLAP']:
         print(PARAMETERS['SHOW_OVERLAP'])
-        SHOW_OVERLAP = bool(PARAMETERS['SHOW_OVERLAP'])
+        SHOW_OVERLAP = PARAMETERS['SHOW_OVERLAP']
 
     if PARAMETERS['PG_START']:
         PG_START = PARAMETERS['PG_START']
@@ -98,9 +111,6 @@ else:
 # print(PARAMETERS, type(PARAMETERS))
 
 # print(eval(sys.argv[1]), type(eval(sys.argv[1])))
-
-
-
 
 
 def time_elapsed(func):
@@ -151,7 +161,8 @@ def file_ext_check(input_path, img_format):
                     if re.search(" C=1_", name):
                         type_list[i_file] = 'contact'
         else:
-            print('place holder for file error check exception')
+            print('wrong file format')
+            error_logging('wrong file format', str(row_file))
         # if ext == ".tif":
         #     # allocate mask to the according folder
         #     if re.search("_Object Predictions", name):
@@ -498,6 +509,11 @@ def plot_layer(l=0):
     plt.show()
 
 
+def error_logging(err_type, err_source):
+    err_log['type'].append(err_type)
+    err_log['source'].append(err_source)
+    pl.DataFrame(err_log).write_csv(output_path + "/err_log.csv")
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
 
@@ -511,8 +527,7 @@ if __name__ == '__main__':
     #     PG_START = 0
     #     PG_END = 1
 
-    err_log = []
-    err_record = {'error type': '', 'source': ''}
+    err_log = {'type': [], 'source': []}
     # # change mode to headless for cluster environment
     # ij = imagej.init('sc.fiji:fiji:2.10.0', mode="interactive")
     # print(ij.getVersion())
@@ -522,9 +537,7 @@ if __name__ == '__main__':
     #     ij.py.run_macro('newImage("dummy", "8-bit", 1, 1, 1);')
     # plt.figure()
 
-    ct = datetime.datetime.now()
-    timestamp = ct.strftime("D%Y_%m_%dT%H_%M_%S")
-    print(timestamp)
+
     print(INPUT_PATH, RING_THICKNESS, PG_START, PG_END, BK_SUB, SHOW_OVERLAP)
     input("...")
 
@@ -533,9 +546,9 @@ if __name__ == '__main__':
     # bmask_table_path = os.path.realpath("./bmask_table")
     # droplet_path = os.path.realpath("./droplet")
     # contact_path = os.path.realpath("./contact")
-    output_path = os.path.realpath("./output_" + timestamp)
-    # print(bmask_path, bmask_table_path, droplet_path, contact_path)
-    os.makedirs(output_path)
+    # output_path = os.path.realpath("./output_" + timestamp)
+    # # print(bmask_path, bmask_table_path, droplet_path, contact_path)
+    # os.makedirs(output_path)
     # check format in batch
     file_lookup_list = file_ext_check(INPUT_PATH, IMG_FORMAT)
     print(file_lookup_list)
@@ -556,7 +569,11 @@ if __name__ == '__main__':
                 arr_cen = arr_cen.collect()
                 print(arr_cen, arr_cen.shape)
             except:
-                print('place holder for error csv')
+                print('error csv')
+                err_log['type'].append('file corrupted/invalid/missing')
+                err_log['source'].append(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_table.csv"))
+                pl.DataFrame(err_log).write_csv(output_path + "/err_log.csv")
+                continue
 
             # form outline from bmask
             # print()
@@ -569,7 +586,9 @@ if __name__ == '__main__':
                 plt.imshow(edge_copy)
                 plt.show()
             except:
-                print('place holder for error bmask')
+                print('error bmask')
+                error_logging('file corrupted/invalid/missing', item['file'] + "_Object Predictions.tif")
+                continue
 
             # load droplet intensity
             try:
@@ -578,7 +597,9 @@ if __name__ == '__main__':
                 plt.imshow(arr_droplet)
                 plt.show()
             except:
-                print('place holder for error halo img')
+                print('error halo img')
+                error_logging('file corrupted/invalid/missing', item['file'] + ".tif")
+                continue
 
             # load contact intensity
             try:
@@ -589,7 +610,9 @@ if __name__ == '__main__':
                 plt.imshow(arr_contact)
                 plt.show()
             except:
-                print('place holder for error contact img')
+                print('error contact img')
+                error_logging('file corrupted/invalid/missing', item['file'].replace(" C=0_", " C=1_") + ".tif")
+                continue
 
             t = 0
 
@@ -629,7 +652,8 @@ if __name__ == '__main__':
                         'ring_x': np.zeros((ring_len,), dtype=np.uint16),
                         'ring_inten': np.zeros((ring_len,), dtype=np.uint16),
                         'contact_inten': np.zeros((ring_len,), dtype=np.uint16),
-                        'overlap': np.full((ring_len,), False, dtype=bool)
+                        'overlap': np.full((ring_len,), False, dtype=bool),
+                        'closed': np.full((ring_len,), False, dtype=bool)
                     }
 
                     branch_data = {
@@ -641,7 +665,8 @@ if __name__ == '__main__':
                         'ring_x': np.zeros((ring_len,), dtype=np.uint16),
                         'ring_inten': np.zeros((ring_len,), dtype=np.uint16),
                         'contact_inten': np.zeros((ring_len,), dtype=np.uint16),
-                        'overlap': np.full((ring_len,), False, dtype=bool)
+                        'overlap': np.full((ring_len,), False, dtype=bool),
+                        'closed': np.full((ring_len,), False, dtype=bool)
                     }
 
                     # track centroid for each void
@@ -666,21 +691,33 @@ if __name__ == '__main__':
                         # print(start_last_layer)
                         y_Start = start_last_layer['ring_y'][0]
 
+                    # removing inner casting
                     if t == 1:
-                        print('removing inner casting...')
+                        # print('removing inner casting...')
                         rm_inner_casting(y_Start - 1, cen_x, edge_copy, edge)
 
                     print("starting(y, x):", y_Start, cen_x)
 
-                    while not (edge_copy[y_Start, cen_x] == edge or edge_copy[y_Start, cen_x] == 254):
-                        y_Start += 1
-                        print(edge_copy[y_Start, cen_x], edge, y_Start, cen_x)
+                    # locate starting pixel
+                    try:
+                        while not (edge_copy[y_Start, cen_x] == edge or edge_copy[y_Start, cen_x] == 254):
+                            y_Start += 1
+                            print(edge_copy[y_Start, cen_x], edge, y_Start, cen_x)
+                    except:
+                        error_logging('fail to locate edge', item['file'] + "_layer" + str(t) + "_id" + str(row['object_id']))
+                        continue
+
                     # print(type(ring_data['layer']))
                     print("void info:", y_Start, cen_x, edge, cast, edge_copy[y_Start, cen_x], row['object_id'])
 
-                    edge_recur(y_Start, cen_x, edge_copy, arr_droplet, arr_contact, edge, cast, cen_y, cen_x, ring_data,
-                               branch_data, 0,
-                               closed)  # y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, count, last_dir= None
+                    try:
+                        edge_recur(y_Start, cen_x, edge_copy, arr_droplet, arr_contact, edge, cast, cen_y, cen_x, ring_data,
+                                   branch_data, 0,
+                                   closed)  # y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, count, last_dir= None
+                    except:
+                        error_logging('pre-allocated array size too small',
+                                      item['file'] + "_layer" + str(t) + "_id" + str(row['object_id']))
+                        continue
 
                     # patch overlapped spots
                     b4_patch = edge_copy.copy()
@@ -702,6 +739,13 @@ if __name__ == '__main__':
                             ring_data['ring_x'][dup_i] = branch_data['ring_x'][i_branch]
                             ring_data['ring_inten'][dup_i] = branch_data['ring_inten'][i_branch]
                             ring_data['contact_inten'][dup_i] = branch_data['contact_inten'][i_branch]
+
+                    # check ring if closed and decide the flag
+                    if closed[0]:
+                        ring_data['closed'] = np.full((ring_len,), True, dtype=bool)
+                    else:
+                        error_logging('open ring',
+                                      item['file'] + "_layer" + str(t) + "_id" + str(row['object_id']))
 
                     ring_data = pl.DataFrame(ring_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
                     branch_data = pl.DataFrame(branch_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
@@ -876,7 +920,7 @@ if __name__ == '__main__':
                 pl.when(pl.col("overlap") == 1).then(pl.lit(float("NaN"))).otherwise(pl.col('contact_inten')).keep_name()
             ])
             # # print(ring_data_image_clone)
-            ring_data_image_clone.write_csv(os.path.realpath(output_path + '/test.csv'))
+            # ring_data_image_clone.write_csv(os.path.realpath(output_path + '/test.csv'))
             # input("press enter")
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
                 if SHOW_OVERLAP:

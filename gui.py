@@ -140,7 +140,7 @@ class App(tk.Tk):
         )
         pg_start_slider_num_lb.grid(column=2, row=3, sticky=tk.W, **paddings)
 
-        pg_end_lb = ttk.Label(self, text="Start of Projection:")
+        pg_end_lb = ttk.Label(self, text="End of Projection:")
         pg_end_lb.grid(column=0, row=4, sticky=tk.W, **paddings)
 
         pg_end_slider = ttk.Scale(
@@ -172,7 +172,7 @@ class App(tk.Tk):
         bk_sub_check.grid(column=1, row=5, sticky=tk.E, **paddings)
 
         # show overlap
-        show_overlap_lb = ttk.Label(self, text="Overlapped pixel on plots:")
+        show_overlap_lb = ttk.Label(self, text="Show Overlapped pixel on plots:")
         show_overlap_lb.grid(column=0, row=6, columnspan=2, sticky=tk.W, **paddings)
 
         show_overlap_check = ttk.Checkbutton(
