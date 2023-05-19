@@ -583,8 +583,6 @@ if __name__ == '__main__':
                 edge_copy = arr_bmask.copy()
                 gen_outline_bmask(edge_copy)
 
-                plt.imshow(edge_copy)
-                plt.show()
             except:
                 print('error bmask')
                 error_logging('file corrupted/invalid/missing', item['file'] + "_Object Predictions.tif")
@@ -594,8 +592,7 @@ if __name__ == '__main__':
             try:
                 map_droplet = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + ".tif"))
                 arr_droplet = np.array(map_droplet)
-                plt.imshow(arr_droplet)
-                plt.show()
+
             except:
                 print('error halo img')
                 error_logging('file corrupted/invalid/missing', item['file'] + ".tif")
@@ -607,13 +604,22 @@ if __name__ == '__main__':
                 map_contact = Image.open(
                     os.path.realpath(INPUT_PATH + '/' + item['file'].replace(" C=0_", " C=1_") + ".tif"))
                 arr_contact = np.array(map_contact)
-                plt.imshow(arr_contact)
-                plt.show()
+
             except:
                 print('error contact img')
                 error_logging('file corrupted/invalid/missing', item['file'].replace(" C=0_", " C=1_") + ".tif")
                 continue
 
+            # view raw images and binary mask
+            fig_input, ax_input = plt.subplots(nrows=1,ncols=3, figsize=(24,8))
+            fig_input.suptitle('input images', fontsize=16)
+            ax_input[0].imshow(edge_copy)
+            ax_input[0].set_title('binary mask')
+            ax_input[1].imshow(arr_droplet)
+            ax_input[1].set_title('halo dye channel')
+            ax_input[2].imshow(arr_contact)
+            ax_input[2].set_title('FABCCON channel')
+            plt.show()
             t = 0
 
             droplet_1d_sort = np.sort(arr_droplet, axis=None)
