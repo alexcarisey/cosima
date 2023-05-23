@@ -54,22 +54,17 @@ os.makedirs(output_path)
 
 WALKER_MAX = 253
 X_NORMALIZE = 400
-# RING_THICKNESS, PG_START, PG_END = int, int, int
 BK_SUB, SHOW_OVERLAP = True, True
-# INPUT_PATH = str
 RING_THICKNESS = 5
+ERODE_THICKNESS = 2
 INPUT_PATH = os.path.realpath(r'./input')
-# BK_SUB = True
-# SHOW_OVERLAP = True
 PG_START = 0
 PG_END = RING_THICKNESS
-if len(sys.argv) == 1:
-    RING_THICKNESS = 5
-    INPUT_PATH = os.path.realpath(r'./input')
-    # BK_SUB = True
-    # SHOW_OVERLAP = True
-    PG_START = 0
-    PG_END = RING_THICKNESS
+# if len(sys.argv) == 1:
+#     RING_THICKNESS = 5
+#     INPUT_PATH = os.path.realpath(r'./input')
+#     PG_START = 0
+#     PG_END = RING_THICKNESS
 
 if len(sys.argv) > 1:
 # else:
@@ -257,6 +252,17 @@ def reorder_xy(cir, center, r):
         return cir
 
 
+def erode_outline(y,x,bmap, erode):
+    # print(erode)
+    if bmap[y, x] == erode:
+        if bmap[y+1, x] == 0 or bmap[y-1, x] == 0 or bmap[y, x+1] == 0 or bmap[y, x-1] == 0 or \
+                bmap[y+1, x+1] == 0 or bmap[y-1, x-1] == 0 or bmap[y-1, x+1] == 0 or bmap[y+1, x-1] == 0:
+            bmap[y, x] = ERODE_THICKNESS+2
+        else:
+            bmap[y, x] = erode + 1
+        action_on_neighbors(y, x, True, erode_outline, bmap, erode)
+
+
 def gen_outline(y, x, bmap, void_i):
     if bmap[y, x] == 1:
         bmap[y, x] = 2
@@ -269,15 +275,35 @@ def gen_outline(y, x, bmap, void_i):
 @time_elapsed
 def gen_outline_bmask(bmask):
     bmask[bmask == 255] = 1
+    arr_cen_copy = arr_cen.clone()
+    void_edge = []
     for void_i, void in enumerate(arr_cen.iter_rows(named=True)):
         void_x = int(round(void['Object Center_0'], 0))
         void_y = int(round(void['Object Center_1'], 0))
-        gen_outline(void_y, void_x, bmask, void_i)
+        if ERODE_THICKNESS > 0:
+            erode_val = int
+            for e_val in range(ERODE_THICKNESS):
+                print(void_y,void_x,e_val+1)
+                erode_outline(void_y, void_x, bmask, e_val+1)
+                # plt.imshow(bmask)
+                # plt.show()
+                bmask[bmask == ERODE_THICKNESS+2] = 0
+                erode_val = e_val + 1
+                if bmask[void_y, void_x] == 0:
+                    # erased.append(void['object_id'])
+                    arr_cen_copy = arr_cen_copy.filter(pl.col('object_id') != void['object_id'])
+                    break
+            print(erode_val, e_val + 2)
+            bmask[bmask == (e_val + 2)] = 1
 
-    # plt.imshow(bmask)
-    # plt.show()
-    # bmask[bmask == 2] = 255
+        if bmask[void_y, void_x] != 0:
+            void_edge.append(255 + void_i*2)
+            gen_outline(void_y, void_x, bmask, void_i)
+
+    arr_cen_copy = arr_cen_copy.with_columns(pl.Series(name="init_edge", values=void_edge))
     bmask[bmask == 2] = 0
+    # print(arr_cen_copy.select(pl.col('object_id')), erased, arr_cen.select(pl.col('object_id')))
+    return arr_cen_copy
 
 
 def clearConsole():
@@ -577,16 +603,20 @@ if __name__ == '__main__':
 
             # form outline from bmask
             # print()
-            try:
-                map_bmask = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_Object Predictions.tif"))
-                arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
-                edge_copy = arr_bmask.copy()
-                gen_outline_bmask(edge_copy)
-
-            except:
-                print('error bmask')
-                error_logging('file corrupted/invalid/missing', item['file'] + "_Object Predictions.tif")
-                continue
+            map_bmask = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_Object Predictions.tif"))
+            arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
+            edge_copy = arr_bmask.copy()
+            arr_cen = gen_outline_bmask(edge_copy)
+            # try:
+            #     map_bmask = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_Object Predictions.tif"))
+            #     arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
+            #     edge_copy = arr_bmask.copy()
+            #     gen_outline_bmask(edge_copy)
+            #
+            # except Exception as e:
+            #     print(e)
+            #     error_logging('file corrupted/invalid/missing', item['file'] + "_Object Predictions.tif")
+            #     continue
 
             # load droplet intensity
             try:
@@ -634,8 +664,9 @@ if __name__ == '__main__':
                                  textcoords="offset points",  # how to position the text
                                  xytext=(0, 0),  # distance from text to points (x,y)
                                  ha='center')  # horizontal alignment can be left, right or center
-            plt.draw()
-            # plt.show(block=False)
+            # plt.draw()
+            plt.imshow(edge_copy)
+            plt.show()
 
             t = 0
 
@@ -658,9 +689,16 @@ if __name__ == '__main__':
             ring_data_image = None
             branch_data_image = None
 
+            print(arr_cen)
             while t < RING_THICKNESS:
                 for i, row in enumerate(arr_cen.iter_rows(named=True)):
+                    cen_x = int(round(row['Object Center_0'], 0))
+                    cen_y = int(round(row['Object Center_1'], 0))
+
                     print("i:", i)
+                    # if edge_copy[cen_y,cen_x] == 0:
+                    #     print('void erased by erosion')
+                    #     continue
                     # allocate table for ring data
                     ring_len = int(row['Size in pixels']) * 10  # could be too small
                     print(row['object_id'], ring_len)
@@ -693,10 +731,10 @@ if __name__ == '__main__':
                     }
 
                     # track centroid for each void
-                    cen_x = int(round(row['Object Center_0'], 0))
-                    cen_y = int(round(row['Object Center_1'], 0))
 
-                    edge = 255 + t + 2 * i
+
+                    # edge = 255 + t + 2 * i
+                    edge = row['init_edge'] + t
                     cast = edge + 1
 
                     # if t == 0:
@@ -711,7 +749,7 @@ if __name__ == '__main__':
                     else:
                         start_last_layer = ring_data_image.filter(
                             (pl.col("object_id") == row['object_id']) & (pl.col("layer") == t) & (pl.col("index") == 0))
-                        # print(start_last_layer)
+                        print(start_last_layer)
                         y_Start = start_last_layer['ring_y'][0]
 
                     # removing inner casting
@@ -878,6 +916,7 @@ if __name__ == '__main__':
                 t += 1
 
                 # save and export as csv
+                print(ring_data_project)
                 ring_data_project.write_csv(os.path.realpath(output_path + '/ring_' + timestamp + '.csv'))
                 branch_data_project.write_csv(os.path.realpath(output_path + '/branch_' + timestamp + '.csv'))
 
