@@ -539,7 +539,7 @@ if __name__ == '__main__':
 
 
     print(INPUT_PATH, RING_THICKNESS, PG_START, PG_END, BK_SUB, SHOW_OVERLAP)
-    input("...")
+    # input("...")
 
     # check first time runner
     # bmask_path = os.path.realpath("./bmask")
@@ -611,15 +611,32 @@ if __name__ == '__main__':
                 continue
 
             # view raw images and binary mask
-            fig_input, ax_input = plt.subplots(nrows=1,ncols=3, figsize=(24,8))
+            fig_input, ax_input = plt.subplots(nrows=1,ncols=2, figsize=(22,18), layout='tight')
             fig_input.suptitle('input images', fontsize=16)
-            ax_input[0].imshow(edge_copy)
-            ax_input[0].set_title('binary mask')
-            ax_input[1].imshow(arr_droplet)
-            ax_input[1].set_title('halo dye channel')
-            ax_input[2].imshow(arr_contact)
-            ax_input[2].set_title('FABCCON channel')
-            plt.show()
+
+            ax_input[0].imshow(arr_droplet)
+            ax_input[0].set_title('halo dye channel')
+            ax_input[1].imshow(arr_contact)
+            ax_input[1].set_title('FABCCON channel')
+            for row_cen in arr_cen.iter_rows(named=True):
+                label = f"{row_cen['object_id']}"
+                ax_input[0].annotate(label,  # this is the text
+                            (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
+                            color='red',
+                            # these are the coordinates to position the label
+                            textcoords="offset points",  # how to position the text
+                            xytext=(0, 0),  # distance from text to points (x,y)
+                            ha='center')  # horizontal alignment can be left, right or center
+                ax_input[1].annotate(label,  # this is the text
+                                 (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
+                                 color='red',
+                                 # these are the coordinates to position the label
+                                 textcoords="offset points",  # how to position the text
+                                 xytext=(0, 0),  # distance from text to points (x,y)
+                                 ha='center')  # horizontal alignment can be left, right or center
+            plt.draw()
+            # plt.show(block=False)
+
             t = 0
 
             droplet_1d_sort = np.sort(arr_droplet, axis=None)
@@ -980,11 +997,11 @@ if __name__ == '__main__':
                             ha='center')  # horizontal alignment can be left, right or center
                 # ax.text(int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0)),
                 #          f"{row_
-            axfreq = plt.axes([0.1, 0.95, 0.1, 0.01])  # right, top, length, width
+            axfreq = plt.axes([0.1, 0.85, 0.1, 0.01])  # right, top, length, width
             slider_layer = Slider(axfreq, label="layer  ", valmin=1, valmax=RING_THICKNESS + 1, valstep=1)
 
             controls = iplt.imshow(show_layer, layer=slider_layer, ax=ax)
-            fig.suptitle(f"traverse map")
+            fig.suptitle(f"traverse map: {item['file']}")
             plt.get_current_fig_manager().window.setGeometry(0, 0, 640, 480)
 
             # plotting intensity for the whole layer
@@ -1027,6 +1044,37 @@ if __name__ == '__main__':
                 else:
                     ax_twin.tick_params(axis="y", labelcolor="red")
 
+            # fig_input, ax_input = plt.subplots(nrows=1, ncols=3, figsize=(24, 8))
+            # fig_input.suptitle('input images', fontsize=16)
+            # ax_input[0].imshow(edge_copy)
+            # ax_input[0].set_title('binary mask')
+            # ax_input[1].imshow(arr_droplet)
+            # ax_input[1].set_title('halo dye channel')
+            # ax_input[2].imshow(arr_contact)
+            # ax_input[2].set_title('FABCCON channel')
+            # plt.show()
+            # for row_cen in arr_cen.iter_rows(named=True):
+            #     label = f"{row_cen['object_id']}"
+            #     ax_plot[0].annotate(label,  # this is the text
+            #                 (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
+            #                 color='red',
+            #                 # these are the coordinates to position the label
+            #                 textcoords="offset points",  # how to position the text
+            #                 xytext=(0, 0),  # distance from text to points (x,y)
+            #                 ha='center')  # horizontal alignment can be left, right or center
+            #     ax_plot[1].annotate(label,  # this is the text
+            #                      (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
+            #                      color='red',
+            #                      # these are the coordinates to position the label
+            #                      textcoords="offset points",  # how to position the text
+            #                      xytext=(0, 0),  # distance from text to points (x,y)
+            #                      ha='center')  # horizontal alignment can be left, right or center
+            # ax_plot[0].imshow(arr_droplet)
+            # ax_plot[1].imshow(arr_contact)
+
+
+            plt.show()
+
             for x in range(RING_THICKNESS):
                 fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c, sharex=True, sharey=True, figsize=(c*4, r*3))
                 fig_layer.suptitle(f"intensity plot for layer: {x+1}")
@@ -1054,8 +1102,7 @@ if __name__ == '__main__':
                     else:
                         ax_layer_twin.tick_params(axis="y", labelcolor="red")
                 plt.savefig(os.path.realpath(output_path + '/' + item['file'] + '_layer' + str(x+1) + '_' + timestamp + '.png'))
-
-            plt.show()
+                plt.close(fig_layer)
 
 
 
