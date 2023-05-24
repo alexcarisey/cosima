@@ -55,11 +55,11 @@ os.makedirs(output_path)
 WALKER_MAX = 253
 X_NORMALIZE = 400
 BK_SUB, SHOW_OVERLAP = True, True
-RING_THICKNESS = 5
-ERODE_THICKNESS = 4
+RING_THICKNESS = 4
+ERODE_THICKNESS = 0
 INPUT_PATH = os.path.realpath(r'./input')
-PG_START = 0
-PG_END = RING_THICKNESS
+CP_START = 0
+CP_END = RING_THICKNESS-1
 # if len(sys.argv) == 1:
 #     RING_THICKNESS = 5
 #     INPUT_PATH = os.path.realpath(r'./input')
@@ -67,15 +67,14 @@ PG_END = RING_THICKNESS
 #     PG_END = RING_THICKNESS
 
 if len(sys.argv) > 1:
-# else:
+
     PARAMETERS = eval(sys.argv[1])
+
     print(PARAMETERS)
-    print(PARAMETERS['BK_SUB'], PARAMETERS['SHOW_OVERLAP'])
     if PARAMETERS['INPUT_PATH']:
-        print(PARAMETERS['INPUT_PATH'])
         INPUT_PATH = PARAMETERS['INPUT_PATH']
 
-    if PARAMETERS['ERODE_THICKNESS']:
+    if type(PARAMETERS['ERODE_THICKNESS']) is int:
         ERODE_THICKNESS = PARAMETERS['ERODE_THICKNESS']
 
     if PARAMETERS['RING_THICKNESS']:
@@ -89,11 +88,11 @@ if len(sys.argv) > 1:
         print(PARAMETERS['SHOW_OVERLAP'])
         SHOW_OVERLAP = PARAMETERS['SHOW_OVERLAP']
 
-    if PARAMETERS['PG_START']:
-        PG_START = PARAMETERS['PG_START']
+    if PARAMETERS['CP_START']:
+        CP_START = PARAMETERS['CP_START']-1
 
-    if PARAMETERS['PG_END']:
-        PG_END = PARAMETERS['PG_END']
+    if PARAMETERS['CP_END']:
+        CP_END = PARAMETERS['CP_END']-1
 
 # lazy load csv
 # arr_cen = pl.scan_csv(r'./raw_table/C1-ER-LD+3uM DOM 60x confocal Z003.nd2_10006_table.csv') \
@@ -569,10 +568,8 @@ if __name__ == '__main__':
     # if ij.WindowManager.getIDList() is None:
     #     ij.py.run_macro('newImage("dummy", "8-bit", 1, 1, 1);')
     # plt.figure()
-
-
-    print(INPUT_PATH, RING_THICKNESS, PG_START, PG_END, BK_SUB, SHOW_OVERLAP)
-    # input("...")
+    print(INPUT_PATH, ERODE_THICKNESS, RING_THICKNESS, CP_START, CP_END, BK_SUB, SHOW_OVERLAP)
+    input("...")
 
     # check first time runner
     # bmask_path = os.path.realpath("./bmask")
@@ -1005,6 +1002,32 @@ if __name__ == '__main__':
                     new_x = np.linspace(index_data[x][0], index_data[x][-1], X_NORMALIZE)
                     plot_data[i][x]['ring_inten'] = ring_inter(new_x)
                     plot_data[i][x]['contact_inten'] = contact_inter(new_x)
+
+                    # set up compression intensity
+                    if CP_END > CP_START and CP_START <= x <= CP_END:
+                        print('compression')
+                        # initialize first compression layer
+                        if x == CP_START:
+                            plot_data[i][-1]['ring_inten'] = np.array(plot_data[i][x]['ring_inten'])
+                            plot_data[i][-1]['contact_inten'] = np.array(plot_data[i][x]['contact_inten'])
+                        plot_data[i][-1]['ring_inten'] = np.add(plot_data[i][-1]['ring_inten'], np.array(plot_data[i][x]['ring_inten']))
+                        plot_data[i][-1]['contact_inten'] = np.add(plot_data[i][-1]['contact_inten'],
+                                                                np.array(plot_data[i][x]['contact_inten']))
+                        # print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
+                        if x == CP_END:
+                            print(row['object_id'], np.shape(plot_data[i][-1]['ring_inten']))
+                            print(np.nansum(plot_data[i][-1]['ring_inten']),
+                                  np.nansum(plot_data[i][-1]['contact_inten']))
+                            plot_data[i][-1]['ring_inten'] /= (CP_END-CP_START+1)
+                            plot_data[i][-1]['contact_inten'] /= (CP_END - CP_START + 1)
+                            print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
+
+                    # if no compression, copy the value of last layer for compression layer
+                    if CP_END <= CP_START:
+                        # print('no compression')
+                        plot_data[i][-1]['ring_inten'] = plot_data[i][RING_THICKNESS-1]['ring_inten']
+                        plot_data[i][-1]['contact_inten'] = plot_data[i][RING_THICKNESS - 1]['contact_inten']
+
                     # if x == 0:
                     #     plot_data[i][-1]['ring_inten'] = ring_inter(new_x)
                     #     plot_data[i][-1]['contact_inten'] = contact_inter(new_x)

@@ -15,21 +15,21 @@ class App(tk.Tk):
             parameter_setting = {"INPUT_PATH": folder_path.get(),
                                  "ERODE_THICKNESS": erode_thickness.get(),
                                  "RING_THICKNESS": ring_thickness.get(),
-                                 "PG_START": pg_start.get(),
-                                 "PG_END": pg_end.get(),
+                                 "CP_START": cp_start.get(),
+                                 "CP_END": cp_end.get(),
                                  "BK_SUB": background_sub.get(),
                                  "SHOW_OVERLAP": show_overlap.get()
                                  }
             print(str(parameter_setting))
 
-            if pg_end.get() > ring_thickness.get():
-                err_msg_lb.configure(text="Wrong setting: projection end layer exceed thickness!")
+            if cp_end.get() > ring_thickness.get():
+                err_msg_lb.configure(text="Wrong setting: compression end layer exceed thickness!")
 
-            elif pg_start.get() > ring_thickness.get():
-                err_msg_lb.configure(text="Wrong setting: projection starting layer exceed thickness!")
+            elif cp_start.get() > ring_thickness.get():
+                err_msg_lb.configure(text="Wrong setting: compression starting layer exceed thickness!")
 
-            elif pg_start.get() > pg_end.get():
-                err_msg_lb.configure(text="Wrong setting: projection starting layer smaller than end layer!")
+            elif cp_start.get() > cp_end.get():
+                err_msg_lb.configure(text="Wrong setting: compression starting layer smaller than end layer!")
 
             else:
                 err_msg_lb.configure(text="valid setting, proceed to analysis...")
@@ -47,23 +47,29 @@ class App(tk.Tk):
 
         def ring_slider_changed(event):
             # ring_slider.get()
-            # pg_start_max.set(ring_thickness.get())
-            # print(pg_start_max.get())
-            pg_start_slider.configure(to=ring_thickness.get())
-            pg_start_slider.update_idletasks()
-            pg_end_slider.configure(to=ring_thickness.get())
-            pg_end_slider.update_idletasks()
+            # cp_start_max.set(ring_thickness.get())
+            # print(cp_start_max.get())
+            # print(int(event))
             ring_slide_num_lb.configure(text=get_current_value(ring_thickness))
+            cp_start_slider.configure(to=ring_thickness.get())
+            cp_start_slider.update_idletasks()
+            cp_end.set(ring_thickness.get())
+            cp_end_slider_num_lb.configure(text=get_current_value(cp_end))
+            cp_end_slider.configure(to=ring_thickness.get())
+            cp_end_slider.update_idletasks()
 
-        def pg_start_slider_changed(event):
-            # ring_slider.get()
-            pg_end_slider.configure(from_=pg_start.get())
-            pg_end_slider.update_idletasks()
-            pg_start_slider_num_lb.configure(text=get_current_value(pg_start))
 
-        def pg_end_slider_changed(event):
+        def cp_start_slider_changed(event):
             # ring_slider.get()
-            pg_end_slider_num_lb.configure(text=get_current_value(pg_end))
+            cp_end_slider.configure(from_=cp_start.get())
+            cp_end_slider.update_idletasks()
+            cp_start_slider_num_lb.configure(text=get_current_value(cp_start))
+
+        def cp_end_slider_changed(event):
+            # ring_slider.get()
+            cp_end_slider_num_lb.configure(text=get_current_value(cp_end))
+            cp_start_slider.configure(to=cp_end.get())
+            cp_start_slider.update_idletasks()
 
         def get_current_value(part):
             return part.get()
@@ -83,11 +89,11 @@ class App(tk.Tk):
         folder_path = tk.StringVar(self, value=r'./input')
         erode_thickness = tk.IntVar(self, value=0)
         ring_thickness = tk.IntVar(self, value=1)
-        pg_start = tk.IntVar(self, value=1)
-        pg_start_max = tk.IntVar(self, value=20)
-        pg_end = tk.IntVar(self, value=1)
-        pg_end_max = tk.IntVar(self, value=1)
-        pg_end_min = tk.IntVar(self, value=20)
+        cp_start = tk.IntVar(self, value=1)
+        cp_start_max = tk.IntVar(self, value=20)
+        cp_end = tk.IntVar(self, value=1)
+        cp_end_max = tk.IntVar(self, value=1)
+        cp_end_min = tk.IntVar(self, value=20)
         background_sub = tk.BooleanVar(self, value=True)
         show_overlap = tk.BooleanVar(self, value=True)
 
@@ -146,44 +152,43 @@ class App(tk.Tk):
         ring_slide_num_lb.grid(column=2, row=3, sticky=tk.W, **paddings)
 
         # projection setting
-        pg_start_lb = ttk.Label(self, text="Start of Projection:")
-        pg_start_lb.grid(column=0, row=4, sticky=tk.W, **paddings)
+        cp_start_lb = ttk.Label(self, text="Start of Compression:")
+        cp_start_lb.grid(column=0, row=4, sticky=tk.W, **paddings)
 
-        pg_start_slider = ttk.Scale(
+        cp_start_slider = ttk.Scale(
             self,
             from_=1,
-            to=pg_start_max.get(),
+            to=cp_start_max.get(),
             orient='horizontal',  # horizontal
-            variable=pg_start,
-            command=pg_start_slider_changed,
+            variable=cp_start,
+            command=cp_start_slider_changed,
         )
-        pg_start_slider.grid(column=1, row=4, sticky=tk.EW, **paddings)
+        cp_start_slider.grid(column=1, row=4, sticky=tk.EW, **paddings)
 
-        pg_start_slider_num_lb = ttk.Label(
+        cp_start_slider_num_lb = ttk.Label(
             self,
-            text=get_current_value(pg_start)
+            text=get_current_value(cp_start)
         )
-        pg_start_slider_num_lb.grid(column=2, row=4, sticky=tk.W, **paddings)
+        cp_start_slider_num_lb.grid(column=2, row=4, sticky=tk.W, **paddings)
 
-        pg_end_lb = ttk.Label(self, text="End of Projection:")
-        pg_end_lb.grid(column=0, row=5, sticky=tk.W, **paddings)
+        cp_end_lb = ttk.Label(self, text="End of Compression:")
+        cp_end_lb.grid(column=0, row=5, sticky=tk.W, **paddings)
 
-        pg_end_slider = ttk.Scale(
+        cp_end_slider = ttk.Scale(
             self,
             from_=1,
             to=20,
             orient='horizontal',  # horizontal
-            variable=pg_end,
-            command=pg_end_slider_changed,
+            variable=cp_end,
+            command=cp_end_slider_changed,
         )
-        pg_end_slider.grid(column=1, row=5, sticky=tk.EW, **paddings)
+        cp_end_slider.grid(column=1, row=5, sticky=tk.EW, **paddings)
 
-        pg_end_slider_num_lb = ttk.Label(
+        cp_end_slider_num_lb = ttk.Label(
             self,
-            text=get_current_value(pg_end)
+            text=get_current_value(cp_end)
         )
-        pg_end_slider_num_lb.grid(column=2, row=5, sticky=tk.W, **paddings)
-
+        cp_end_slider_num_lb.grid(column=2, row=5, sticky=tk.W, **paddings)
 
         # background sub
         bk_sub_lb = ttk.Label(self, text="Background subtraction:")
@@ -203,7 +208,6 @@ class App(tk.Tk):
         show_overlap_check = ttk.Checkbutton(
             self,
             variable=show_overlap,
-
         )
         show_overlap_check.grid(column=1, row=7, sticky=tk.E, **paddings)
 
