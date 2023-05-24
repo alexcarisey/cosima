@@ -49,14 +49,14 @@ ct = datetime.datetime.now()
 timestamp = ct.strftime("D%Y_%m_%dT%H_%M_%S")
 print(timestamp)
 
-output_path = os.path.realpath("./output_" + timestamp)
+output_path = os.path.realpath("./output/output_" + timestamp)
 os.makedirs(output_path)
 
 WALKER_MAX = 253
 X_NORMALIZE = 400
 BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 5
-ERODE_THICKNESS = 2
+ERODE_THICKNESS = 4
 INPUT_PATH = os.path.realpath(r'./input')
 PG_START = 0
 PG_END = RING_THICKNESS
@@ -74,6 +74,9 @@ if len(sys.argv) > 1:
     if PARAMETERS['INPUT_PATH']:
         print(PARAMETERS['INPUT_PATH'])
         INPUT_PATH = PARAMETERS['INPUT_PATH']
+
+    if PARAMETERS['ERODE_THICKNESS']:
+        ERODE_THICKNESS = PARAMETERS['ERODE_THICKNESS']
 
     if PARAMETERS['RING_THICKNESS']:
         RING_THICKNESS = PARAMETERS['RING_THICKNESS']
@@ -157,7 +160,7 @@ def file_ext_check(input_path, img_format):
                         type_list[i_file] = 'contact'
         else:
             print('wrong file format')
-            error_logging('wrong file format', str(row_file))
+            error_logging('low', 'not in exception', 'wrong file format', str(row_file))
         # if ext == ".tif":
         #     # allocate mask to the according folder
         #     if re.search("_Object Predictions", name):
@@ -290,7 +293,8 @@ def gen_outline_bmask(bmask):
                 bmask[bmask == ERODE_THICKNESS+2] = 0
                 erode_val = e_val + 1
                 if bmask[void_y, void_x] == 0:
-                    # erased.append(void['object_id'])
+                    error_logging('low', 'not in exception', 'void erased by erosion',
+                                  item['file'] + "_id" + str(void['object_id']))
                     arr_cen_copy = arr_cen_copy.filter(pl.col('object_id') != void['object_id'])
                     break
             print(erode_val, e_val + 2)
@@ -301,6 +305,7 @@ def gen_outline_bmask(bmask):
             gen_outline(void_y, void_x, bmask, void_i)
 
     arr_cen_copy = arr_cen_copy.with_columns(pl.Series(name="init_edge", values=void_edge))
+    # print(arr_cen_copy)
     bmask[bmask == 2] = 0
     # print(arr_cen_copy.select(pl.col('object_id')), erased, arr_cen.select(pl.col('object_id')))
     return arr_cen_copy
@@ -535,7 +540,9 @@ def plot_layer(l=0):
     plt.show()
 
 
-def error_logging(err_type, err_source):
+def error_logging(err_impact, e_msg, err_type, err_source):
+    err_log['impact'].append(err_impact)
+    err_log['e_msg'].append(e_msg)
     err_log['type'].append(err_type)
     err_log['source'].append(err_source)
     pl.DataFrame(err_log).write_csv(output_path + "/err_log.csv")
@@ -553,7 +560,7 @@ if __name__ == '__main__':
     #     PG_START = 0
     #     PG_END = 1
 
-    err_log = {'type': [], 'source': []}
+    err_log = {'impact': [], 'e_msg': [], 'type': [], 'source': []}
     # # change mode to headless for cluster environment
     # ij = imagej.init('sc.fiji:fiji:2.10.0', mode="interactive")
     # print(ij.getVersion())
@@ -594,38 +601,31 @@ if __name__ == '__main__':
                     .filter(pl.col("Predicted Class") == "LipidDroplets")
                 arr_cen = arr_cen.collect()
                 print(arr_cen, arr_cen.shape)
-            except:
-                print('error csv')
-                err_log['type'].append('file corrupted/invalid/missing')
-                err_log['source'].append(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_table.csv"))
-                pl.DataFrame(err_log).write_csv(output_path + "/err_log.csv")
+            except Exception as e:
+                print(e)
+                error_logging('high', e, 'file corrupted/invalid/missing', item['file'] + "_table.csv")
                 continue
 
             # form outline from bmask
-            # print()
-            map_bmask = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_Object Predictions.tif"))
-            arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
-            edge_copy = arr_bmask.copy()
-            arr_cen = gen_outline_bmask(edge_copy)
-            # try:
-            #     map_bmask = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_Object Predictions.tif"))
-            #     arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
-            #     edge_copy = arr_bmask.copy()
-            #     gen_outline_bmask(edge_copy)
-            #
-            # except Exception as e:
-            #     print(e)
-            #     error_logging('file corrupted/invalid/missing', item['file'] + "_Object Predictions.tif")
-            #     continue
+            try:
+                map_bmask = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + "_Object Predictions.tif"))
+                arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
+                edge_copy = arr_bmask.copy()
+                arr_cen = gen_outline_bmask(edge_copy)
+                if len(arr_cen) == 0:
+                    continue
+            except Exception as e:
+                print(e)
+                error_logging('high', e, 'file corrupted/invalid/missing', item['file'] + "_Object Predictions.tif")
+                continue
 
             # load droplet intensity
             try:
                 map_droplet = Image.open(os.path.realpath(INPUT_PATH + '/' + item['file'] + ".tif"))
                 arr_droplet = np.array(map_droplet)
-
-            except:
-                print('error halo img')
-                error_logging('file corrupted/invalid/missing', item['file'] + ".tif")
+            except Exception as e:
+                print(e)
+                error_logging('high', e, 'file corrupted/invalid/missing', item['file'] + ".tif")
                 continue
 
             # load contact intensity
@@ -634,15 +634,14 @@ if __name__ == '__main__':
                 map_contact = Image.open(
                     os.path.realpath(INPUT_PATH + '/' + item['file'].replace(" C=0_", " C=1_") + ".tif"))
                 arr_contact = np.array(map_contact)
-
-            except:
-                print('error contact img')
-                error_logging('file corrupted/invalid/missing', item['file'].replace(" C=0_", " C=1_") + ".tif")
+            except Exception as e:
+                print(e)
+                error_logging('high', e, 'file corrupted/invalid/missing', item['file'].replace(" C=0_", " C=1_") + ".tif")
                 continue
 
             # view raw images and binary mask
             fig_input, ax_input = plt.subplots(nrows=1,ncols=2, figsize=(22,18), layout='tight')
-            fig_input.suptitle('input images', fontsize=16)
+            fig_input.suptitle(f'input images: {item["file"]}', fontsize=16)
 
             ax_input[0].imshow(arr_droplet)
             ax_input[0].set_title('halo dye channel')
@@ -664,9 +663,9 @@ if __name__ == '__main__':
                                  textcoords="offset points",  # how to position the text
                                  xytext=(0, 0),  # distance from text to points (x,y)
                                  ha='center')  # horizontal alignment can be left, right or center
-            # plt.draw()
-            plt.imshow(edge_copy)
-            plt.show()
+            plt.draw()
+            # plt.imshow(edge_copy)
+            # plt.show()
 
             t = 0
 
@@ -734,6 +733,7 @@ if __name__ == '__main__':
 
 
                     # edge = 255 + t + 2 * i
+                    # print(row)
                     edge = row['init_edge'] + t
                     cast = edge + 1
 
@@ -764,8 +764,9 @@ if __name__ == '__main__':
                         while not (edge_copy[y_Start, cen_x] == edge or edge_copy[y_Start, cen_x] == 254):
                             y_Start += 1
                             print(edge_copy[y_Start, cen_x], edge, y_Start, cen_x)
-                    except:
-                        error_logging('fail to locate edge', item['file'] + "_layer" + str(t) + "_id" + str(row['object_id']))
+                    except Exception as e:
+                        print(e)
+                        error_logging('high', e, 'fail to locate edge', item['file'] + "_layer" + str(t) + "_id" + str(row['object_id']))
                         continue
 
                     # print(type(ring_data['layer']))
@@ -776,7 +777,7 @@ if __name__ == '__main__':
                                    branch_data, 0,
                                    closed)  # y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, count, last_dir= None
                     except:
-                        error_logging('pre-allocated array size too small',
+                        error_logging('medium', e, 'pre-allocated array size too small',
                                       item['file'] + "_layer" + str(t) + "_id" + str(row['object_id']))
                         continue
 
@@ -805,7 +806,7 @@ if __name__ == '__main__':
                     if closed[0]:
                         ring_data['closed'] = np.full((ring_len,), True, dtype=bool)
                     else:
-                        error_logging('open ring',
+                        error_logging('low', 'not in exception', 'open ring',
                                       item['file'] + "_layer" + str(t) + "_id" + str(row['object_id']))
 
                     ring_data = pl.DataFrame(ring_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
@@ -1036,11 +1037,11 @@ if __name__ == '__main__':
                             ha='center')  # horizontal alignment can be left, right or center
                 # ax.text(int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0)),
                 #          f"{row_
-            axfreq = plt.axes([0.1, 0.85, 0.1, 0.01])  # right, top, length, width
+            axfreq = plt.axes([0.1, 0.95, 0.1, 0.01])  # right, top, length, width
             slider_layer = Slider(axfreq, label="layer  ", valmin=1, valmax=RING_THICKNESS + 1, valstep=1)
 
             controls = iplt.imshow(show_layer, layer=slider_layer, ax=ax)
-            fig.suptitle(f"traverse map: {item['file']}")
+            fig.suptitle(f"traverse map")
             plt.get_current_fig_manager().window.setGeometry(0, 0, 640, 480)
 
             # plotting intensity for the whole layer
