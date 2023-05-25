@@ -58,8 +58,8 @@ BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 4
 ERODE_THICKNESS = 0
 INPUT_PATH = os.path.realpath(r'./input')
-CP_START = 0
-CP_END = RING_THICKNESS-1
+RDO_AVER_START = 0
+RDO_AVER_END = RING_THICKNESS-1
 SHOW_PLOTS = True
 # if len(sys.argv) == 1:
 #     RING_THICKNESS = 5
@@ -89,11 +89,11 @@ if len(sys.argv) > 1:
         print(PARAMETERS['SHOW_OVERLAP'])
         SHOW_OVERLAP = PARAMETERS['SHOW_OVERLAP']
 
-    if PARAMETERS['CP_START']:
-        CP_START = PARAMETERS['CP_START']-1
+    if type(PARAMETERS['RDO_AVER_START']) is int:
+        RDO_AVER_START = PARAMETERS['RDO_AVER_START']-1
 
-    if PARAMETERS['CP_END']:
-        CP_END = PARAMETERS['CP_END']-1
+    if type(PARAMETERS['RDO_AVER_END']) is int:
+        RDO_AVER_END = PARAMETERS['RDO_AVER_END']-1
 
     if not PARAMETERS['SHOW_PLOTS']:
         # print(PARAMETERS['SHOW_OVERLAP'])
@@ -533,7 +533,7 @@ if __name__ == '__main__':
     # if ij.WindowManager.getIDList() is None:
     #     ij.py.run_macro('newImage("dummy", "8-bit", 1, 1, 1);')
     # plt.figure()
-    print(INPUT_PATH, ERODE_THICKNESS, RING_THICKNESS, CP_START, CP_END, BK_SUB, SHOW_OVERLAP)
+    print(INPUT_PATH, ERODE_THICKNESS, RING_THICKNESS, RDO_AVER_START, RDO_AVER_END, BK_SUB, SHOW_OVERLAP)
     input("...")
 
     # check first time runner
@@ -878,10 +878,10 @@ if __name__ == '__main__':
                 plot_data[i][x]['contact_inten'] = contact_inter(new_x)
 
                 # set up compression intensity
-                if CP_END > CP_START and CP_START <= x <= CP_END:
+                if RDO_AVER_END > RDO_AVER_START and RDO_AVER_START <= x <= RDO_AVER_END:
                     print('compression')
                     # initialize first compression layer
-                    if x == CP_START:
+                    if x == RDO_AVER_START:
                         plot_data[i][-1]['ring_inten'] = np.array(plot_data[i][x]['ring_inten'])
                         plot_data[i][-1]['contact_inten'] = np.array(plot_data[i][x]['contact_inten'])
                     plot_data[i][-1]['ring_inten'] = np.add(plot_data[i][-1]['ring_inten'],
@@ -889,17 +889,17 @@ if __name__ == '__main__':
                     plot_data[i][-1]['contact_inten'] = np.add(plot_data[i][-1]['contact_inten'],
                                                                np.array(plot_data[i][x]['contact_inten']))
                     # print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
-                    if x == CP_END:
+                    if x == RDO_AVER_END:
                         print(row['object_id'], np.shape(plot_data[i][-1]['ring_inten']),
                               np.array(plot_data[i][x]['ring_inten']).dtype, type(plot_data[i][x]['ring_inten']))
                         print(np.nansum(plot_data[i][-1]['ring_inten']),
                               np.nansum(plot_data[i][-1]['contact_inten']))
-                        plot_data[i][-1]['ring_inten'] /= (CP_END - CP_START + 1)
-                        plot_data[i][-1]['contact_inten'] /= (CP_END - CP_START + 1)
+                        plot_data[i][-1]['ring_inten'] /= (RDO_AVER_END - RDO_AVER_START + 1)
+                        plot_data[i][-1]['contact_inten'] /= (RDO_AVER_END - RDO_AVER_START + 1)
                         print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
 
                 # if no compression, copy the value of last layer for compression layer
-                if CP_END <= CP_START:
+                if RDO_AVER_END <= RDO_AVER_START:
                     # print('no compression')
                     plot_data[i][-1]['ring_inten'] = np.full((X_NORMALIZE,), np.nan)
                     plot_data[i][-1]['contact_inten'] = np.full((X_NORMALIZE,), np.nan)

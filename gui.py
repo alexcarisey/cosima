@@ -15,21 +15,22 @@ class App(tk.Tk):
             parameter_setting = {"INPUT_PATH": folder_path.get(),
                                  "ERODE_THICKNESS": erode_thickness.get(),
                                  "RING_THICKNESS": ring_thickness.get(),
-                                 "CP_START": cp_start.get(),
-                                 "CP_END": cp_end.get(),
+                                 "RDO_AVER": rdo_aver.get(),
+                                 "RDO_AVER_START": rdo_aver_start.get() if rdo_aver.get() else 0,
+                                 "RDO_AVER_END": rdo_aver_end.get() if rdo_aver.get() else 0,
                                  "BK_SUB": background_sub.get(),
                                  "SHOW_OVERLAP": show_overlap.get(),
                                  "SHOW_PLOTS": show_plots.get()
                                  }
             print(str(parameter_setting))
 
-            if cp_end.get() > ring_thickness.get():
+            if rdo_aver_end.get() > ring_thickness.get():
                 err_msg_lb.configure(text="Wrong setting: compression end layer exceed thickness!")
 
-            elif cp_start.get() > ring_thickness.get():
+            elif rdo_aver_start.get() > ring_thickness.get():
                 err_msg_lb.configure(text="Wrong setting: compression starting layer exceed thickness!")
 
-            elif cp_start.get() > cp_end.get():
+            elif rdo_aver_start.get() > rdo_aver_end.get():
                 err_msg_lb.configure(text="Wrong setting: compression starting layer smaller than end layer!")
 
             else:
@@ -48,32 +49,42 @@ class App(tk.Tk):
 
         def ring_slider_changed(event):
             # ring_slider.get()
-            # cp_start_max.set(ring_thickness.get())
-            # print(cp_start_max.get())
+            # rdo_aver_start_max.set(ring_thickness.get())
+            # print(rdo_aver_start_max.get())
             # print(int(event))
             ring_slide_num_lb.configure(text=get_current_value(ring_thickness))
-            cp_start_slider.configure(to=ring_thickness.get())
-            cp_start_slider.update_idletasks()
-            cp_end.set(ring_thickness.get())
-            cp_end_slider_num_lb.configure(text=get_current_value(cp_end))
-            cp_end_slider.configure(to=ring_thickness.get())
-            cp_end_slider.update_idletasks()
+            if rdo_aver.get():
+                rdo_aver_start_slider.configure(to=ring_thickness.get())
+                rdo_aver_start_slider.update_idletasks()
+                rdo_aver_end.set(ring_thickness.get())
+                rdo_aver_end_slider_num_lb.configure(text=get_current_value(rdo_aver_end))
+                rdo_aver_end_slider.configure(to=ring_thickness.get())
+                rdo_aver_end_slider.update_idletasks()
 
-
-        def cp_start_slider_changed(event):
+        def rdo_aver_start_slider_changed(event):
             # ring_slider.get()
-            cp_end_slider.configure(from_=cp_start.get())
-            cp_end_slider.update_idletasks()
-            cp_start_slider_num_lb.configure(text=get_current_value(cp_start))
+            rdo_aver_end_slider.configure(from_=rdo_aver_start.get())
+            rdo_aver_end_slider.update_idletasks()
+            rdo_aver_start_slider_num_lb.configure(text=get_current_value(rdo_aver_start))
 
-        def cp_end_slider_changed(event):
+        def rdo_aver_end_slider_changed(event):
             # ring_slider.get()
-            cp_end_slider_num_lb.configure(text=get_current_value(cp_end))
-            cp_start_slider.configure(to=cp_end.get())
-            cp_start_slider.update_idletasks()
+            rdo_aver_end_slider_num_lb.configure(text=get_current_value(rdo_aver_end))
+            rdo_aver_start_slider.configure(to=rdo_aver_end.get())
+            rdo_aver_start_slider.update_idletasks()
 
         def get_current_value(part):
             return part.get()
+
+        def toggle_rdo_aver():
+            print(rdo_aver.get())
+            if rdo_aver.get():
+                rdo_aver_start_slider.configure(state=tk.ACTIVE)
+                rdo_aver_end_slider.configure(state=tk.ACTIVE)
+            else:
+                rdo_aver_start_slider.configure(state=tk.DISABLED)
+                rdo_aver_end_slider.configure(state=tk.DISABLED)
+
 
         self.geometry('450x450')
         self.resizable(0, 0)
@@ -90,14 +101,15 @@ class App(tk.Tk):
         folder_path = tk.StringVar(self, value=r'./input')
         erode_thickness = tk.IntVar(self, value=0)
         ring_thickness = tk.IntVar(self, value=1)
-        cp_start = tk.IntVar(self, value=1)
-        cp_start_max = tk.IntVar(self, value=20)
-        cp_end = tk.IntVar(self, value=1)
-        cp_end_max = tk.IntVar(self, value=1)
-        cp_end_min = tk.IntVar(self, value=20)
+        rdo_aver_start = tk.IntVar(self, value=1)
+        rdo_aver_start_max = tk.IntVar(self, value=20)
+        rdo_aver_end = tk.IntVar(self, value=1)
+        rdo_aver_end_max = tk.IntVar(self, value=1)
+        rdo_aver_end_min = tk.IntVar(self, value=20)
         background_sub = tk.BooleanVar(self, value=True)
         show_overlap = tk.BooleanVar(self, value=True)
         show_plots = tk.BooleanVar(self, value=True)
+        rdo_aver = tk.BooleanVar(self, value=True)
 
         # heading
         heading = ttk.Label(self, text='Parameters Setup', style='Heading.TLabel')
@@ -153,68 +165,78 @@ class App(tk.Tk):
         )
         ring_slide_num_lb.grid(column=2, row=3, sticky=tk.W, **paddings)
 
-        # projection setting
-        cp_start_lb = ttk.Label(self, text="Start of Compression:")
-        cp_start_lb.grid(column=0, row=4, sticky=tk.W, **paddings)
+        # radio average setting
+        rdo_aver_lb = ttk.Label(self, text="Radio Average:")
+        rdo_aver_lb.grid(column=0, row=4, columnspan=2, sticky=tk.W, **paddings)
 
-        cp_start_slider = ttk.Scale(
+        rdo_aver_check = ttk.Checkbutton(
+            self,
+            variable=rdo_aver,
+            command=toggle_rdo_aver
+        )
+        rdo_aver_check.grid(column=1, row=4, sticky=tk.E, **paddings)
+
+        rdo_aver_start_lb = ttk.Label(self, text="Starting Layer:")
+        rdo_aver_start_lb.grid(column=0, row=5, sticky=tk.W, **paddings)
+
+        rdo_aver_start_slider = ttk.Scale(
             self,
             from_=1,
-            to=cp_start_max.get(),
+            to=rdo_aver_start_max.get(),
             orient='horizontal',  # horizontal
-            variable=cp_start,
-            command=cp_start_slider_changed,
+            variable=rdo_aver_start,
+            command=rdo_aver_start_slider_changed,
         )
-        cp_start_slider.grid(column=1, row=4, sticky=tk.EW, **paddings)
+        rdo_aver_start_slider.grid(column=1, row=5, sticky=tk.EW, **paddings)
 
-        cp_start_slider_num_lb = ttk.Label(
+        rdo_aver_start_slider_num_lb = ttk.Label(
             self,
-            text=get_current_value(cp_start)
+            text=get_current_value(rdo_aver_start)
         )
-        cp_start_slider_num_lb.grid(column=2, row=4, sticky=tk.W, **paddings)
+        rdo_aver_start_slider_num_lb.grid(column=2, row=5, sticky=tk.W, **paddings)
 
-        cp_end_lb = ttk.Label(self, text="End of Compression:")
-        cp_end_lb.grid(column=0, row=5, sticky=tk.W, **paddings)
+        rdo_aver_end_lb = ttk.Label(self, text="End Layer:")
+        rdo_aver_end_lb.grid(column=0, row=6, sticky=tk.W, **paddings)
 
-        cp_end_slider = ttk.Scale(
+        rdo_aver_end_slider = ttk.Scale(
             self,
             from_=1,
             to=20,
             orient='horizontal',  # horizontal
-            variable=cp_end,
-            command=cp_end_slider_changed,
+            variable=rdo_aver_end,
+            command=rdo_aver_end_slider_changed,
         )
-        cp_end_slider.grid(column=1, row=5, sticky=tk.EW, **paddings)
+        rdo_aver_end_slider.grid(column=1, row=6, sticky=tk.EW, **paddings)
 
-        cp_end_slider_num_lb = ttk.Label(
+        rdo_aver_end_slider_num_lb = ttk.Label(
             self,
-            text=get_current_value(cp_end)
+            text=get_current_value(rdo_aver_end)
         )
-        cp_end_slider_num_lb.grid(column=2, row=5, sticky=tk.W, **paddings)
+        rdo_aver_end_slider_num_lb.grid(column=2, row=6, sticky=tk.W, **paddings)
 
         # background sub
         bk_sub_lb = ttk.Label(self, text="Background subtraction:")
-        bk_sub_lb.grid(column=0, row=6, columnspan=2, sticky=tk.W, **paddings)
+        bk_sub_lb.grid(column=0, row=7, columnspan=2, sticky=tk.W, **paddings)
 
         bk_sub_check = ttk.Checkbutton(
             self,
             variable=background_sub,
 
         )
-        bk_sub_check.grid(column=1, row=6, sticky=tk.E, **paddings)
+        bk_sub_check.grid(column=1, row=7, sticky=tk.E, **paddings)
 
         # show overlap
         show_overlap_lb = ttk.Label(self, text="Show Overlapped pixel on plots:")
-        show_overlap_lb.grid(column=0, row=7, columnspan=2, sticky=tk.W, **paddings)
+        show_overlap_lb.grid(column=0, row=8, columnspan=2, sticky=tk.W, **paddings)
 
         show_overlap_check = ttk.Checkbutton(
             self,
             variable=show_overlap,
         )
-        show_overlap_check.grid(column=1, row=7, sticky=tk.E, **paddings)
+        show_overlap_check.grid(column=1, row=8, sticky=tk.E, **paddings)
 
-        # show overlap
-        show_plots_lb = ttk.Label(self, text="Display plots:")
+        # show plots
+        show_plots_lb = ttk.Label(self, text="Show plots:")
         show_plots_lb.grid(column=0, row=79, columnspan=2, sticky=tk.W, **paddings)
 
         show_plots_check = ttk.Checkbutton(
