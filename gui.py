@@ -18,7 +18,8 @@ class App(tk.Tk):
                                  "CP_START": cp_start.get(),
                                  "CP_END": cp_end.get(),
                                  "BK_SUB": background_sub.get(),
-                                 "SHOW_OVERLAP": show_overlap.get()
+                                 "SHOW_OVERLAP": show_overlap.get(),
+                                 "SHOW_PLOTS": show_plots.get()
                                  }
             print(str(parameter_setting))
 
@@ -74,7 +75,7 @@ class App(tk.Tk):
         def get_current_value(part):
             return part.get()
 
-        self.geometry('450x350')
+        self.geometry('450x450')
         self.resizable(0, 0)
         self.title('COSIMA')
 
@@ -96,6 +97,7 @@ class App(tk.Tk):
         cp_end_min = tk.IntVar(self, value=20)
         background_sub = tk.BooleanVar(self, value=True)
         show_overlap = tk.BooleanVar(self, value=True)
+        show_plots = tk.BooleanVar(self, value=True)
 
         # heading
         heading = ttk.Label(self, text='Parameters Setup', style='Heading.TLabel')
@@ -211,13 +213,23 @@ class App(tk.Tk):
         )
         show_overlap_check.grid(column=1, row=7, sticky=tk.E, **paddings)
 
+        # show overlap
+        show_plots_lb = ttk.Label(self, text="Display plots:")
+        show_plots_lb.grid(column=0, row=79, columnspan=2, sticky=tk.W, **paddings)
+
+        show_plots_check = ttk.Checkbutton(
+            self,
+            variable=show_plots,
+        )
+        show_plots_check.grid(column=1, row=79, sticky=tk.E, **paddings)
+
         # error message
         err_msg_lb = ttk.Label(self, text="")
-        err_msg_lb.grid(column=0, row=8, columnspan=3, sticky=tk.W, **paddings)
+        err_msg_lb.grid(column=0, row=89, columnspan=3, sticky=tk.W, **paddings)
 
         # run button
         login_button = ttk.Button(self, text="Run", command=exit_gui)
-        login_button.grid(column=2, row=9, sticky=tk.E, **paddings)
+        login_button.grid(column=2, row=99, sticky=tk.E, **paddings)
 
         # configure style
         self.style = ttk.Style(self)
