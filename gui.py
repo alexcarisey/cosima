@@ -86,19 +86,20 @@ class App(tk.Tk):
                 rdo_aver_end_slider.configure(state=tk.DISABLED)
 
         def pick_ch_num(event):
-            print(ch_num_option.get(), ch_name.get())
-            if ch_num_option.get() in ch_info.keys():
-                ch_name.set(ch_info[ch_num_option.get()])
+            print('check')
+
 
         def add_channel():
             ch_info[ch_num_option.get()] = ch_name.get()
             if ch_num_option.get() == ch_num_list[-1]:
                 ch_num_list.append(ch_num_option.get()+1)
-                ch_num_option.set(ch_num_option.get()+1)  # remove default selection only, not the full list
+                # ch_num_option.set(ch_num_option.get()+1)
                 ch_num_opt['menu'].delete(0, 'end')  # remove full list
+                # ch_num_opt['menu'].add_command(command=pick_ch_num())
                 for opt in ch_num_list:
-                    ch_num_opt['menu'].add_command(label=opt, command=tk._setit(ch_num_option, opt))
-                ch_num_option.set(ch_num_list[-1])  # default value set
+                    ch_num_opt['menu'].add_command(label=opt, command=tk._setit(ch_num_option, opt, pick_ch_num))
+
+                ch_num_option.set(ch_num_list[-1])
             # if ch_num_option not in ch_info.keys():
 
             print(ch_info)
@@ -287,7 +288,7 @@ class App(tk.Tk):
             ch_num_option,
             # ch_num_list[0],
             *ch_num_list,
-            command=pick_ch_num,
+            command=pick_ch_num
 
         )
         ch_num_opt.grid(column=0, row=80, sticky=tk.E, **paddings)
