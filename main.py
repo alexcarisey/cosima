@@ -879,7 +879,6 @@ if __name__ == '__main__':
 
                 # set up compression intensity
                 if RDO_AVER_END > RDO_AVER_START and RDO_AVER_START <= x <= RDO_AVER_END:
-                    print('compression')
                     # initialize first compression layer
                     if x == RDO_AVER_START:
                         plot_data[i][-1]['ring_inten'] = np.array(plot_data[i][x]['ring_inten'])
@@ -890,13 +889,8 @@ if __name__ == '__main__':
                                                                np.array(plot_data[i][x]['contact_inten']))
                     # print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
                     if x == RDO_AVER_END:
-                        print(row['object_id'], np.shape(plot_data[i][-1]['ring_inten']),
-                              np.array(plot_data[i][x]['ring_inten']).dtype, type(plot_data[i][x]['ring_inten']))
-                        print(np.nansum(plot_data[i][-1]['ring_inten']),
-                              np.nansum(plot_data[i][-1]['contact_inten']))
                         plot_data[i][-1]['ring_inten'] /= (RDO_AVER_END - RDO_AVER_START + 1)
                         plot_data[i][-1]['contact_inten'] /= (RDO_AVER_END - RDO_AVER_START + 1)
-                        print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
 
                 # if no compression, copy the value of last layer for compression layer
                 if RDO_AVER_END <= RDO_AVER_START:

@@ -85,6 +85,26 @@ class App(tk.Tk):
                 rdo_aver_start_slider.configure(state=tk.DISABLED)
                 rdo_aver_end_slider.configure(state=tk.DISABLED)
 
+        def pick_ch_num(event):
+            print(ch_num_option.get(), ch_name.get())
+            if ch_num_option.get() in ch_info.keys():
+                ch_name.set(ch_info[ch_num_option.get()])
+
+        def add_channel():
+            ch_info[ch_num_option.get()] = ch_name.get()
+            if ch_num_option.get() == ch_num_list[-1]:
+                ch_num_list.append(ch_num_option.get()+1)
+                ch_num_option.set(ch_num_option.get()+1)  # remove default selection only, not the full list
+                ch_num_opt['menu'].delete(0, 'end')  # remove full list
+                for opt in ch_num_list:
+                    ch_num_opt['menu'].add_command(label=opt, command=tk._setit(ch_num_option, opt))
+                ch_num_option.set(ch_num_list[-1])  # default value set
+            # if ch_num_option not in ch_info.keys():
+
+            print(ch_info)
+
+
+
 
         self.geometry('450x450')
         self.resizable(0, 0)
@@ -98,6 +118,17 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=3)
 
+        ch_num_list = [1]
+        ch_num_option = tk.IntVar(self, value=ch_num_list[0])
+        # ch_num_option.set(ch_num_list[0])
+
+        # ch_num_list = list
+        ch_nums = list
+        ch_names = list
+        ch_info = {
+            1: '',
+        }
+
         folder_path = tk.StringVar(self, value=r'./input')
         erode_thickness = tk.IntVar(self, value=0)
         ring_thickness = tk.IntVar(self, value=1)
@@ -110,6 +141,8 @@ class App(tk.Tk):
         show_overlap = tk.BooleanVar(self, value=True)
         show_plots = tk.BooleanVar(self, value=True)
         rdo_aver = tk.BooleanVar(self, value=True)
+        ch_num = tk.IntVar(self)
+        ch_name = tk.StringVar(self)
 
         # heading
         heading = ttk.Label(self, text='Parameters Setup', style='Heading.TLabel')
@@ -244,6 +277,25 @@ class App(tk.Tk):
             variable=show_plots,
         )
         show_plots_check.grid(column=1, row=79, sticky=tk.E, **paddings)
+
+        # Channel number label
+        ch_num_lb = ttk.Label(self, text="Channel:")
+        ch_num_lb.grid(column=0, row=80, columnspan=1, sticky=tk.W, **paddings)
+
+        ch_num_opt = ttk.OptionMenu(
+            self,
+            ch_num_option,
+            # ch_num_list[0],
+            *ch_num_list,
+            command=pick_ch_num,
+
+        )
+        ch_num_opt.grid(column=0, row=80, sticky=tk.E, **paddings)
+
+        ch_name_entry = ttk.Entry(self, textvariable=ch_name,)
+        ch_name_entry.grid(column=1, row=80, columnspan=1, sticky=tk.EW, **paddings)
+        add_ch_btn = ttk.Button(self, text="Add", command=add_channel)
+        add_ch_btn.grid(column=2, row=80, sticky=tk.E, **paddings)
 
         # error message
         err_msg_lb = ttk.Label(self, text="")
