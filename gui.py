@@ -306,7 +306,7 @@ class App(tk.Tk):
         add_ch_btn.grid(column=2, row=80, sticky=tk.E, **paddings)
 
         # base select
-        ch_base_lb = ttk.Label(self, text="Base channel:")
+        ch_base_lb = ttk.Label(self, text="Base CH:")
         ch_base_lb.grid(column=0, row=81, columnspan=1, sticky=tk.W, **paddings)
 
         ch_base_opt = ttk.OptionMenu(

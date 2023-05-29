@@ -61,7 +61,7 @@ INPUT_PATH = os.path.realpath(r'./input')
 RDL_AVER_START = 0
 RDL_AVER_END = RING_THICKNESS-1
 SHOW_PLOTS = True
-CHANNELS = {0: '0', 1: '1'}
+CHANNELS = {0:'halo', 1:'fabccon'}
 B_CHANNEL = 0
 # if len(sys.argv) == 1:
 #     RING_THICKNESS = 5
@@ -102,8 +102,8 @@ if len(sys.argv) > 1:
     if PARAMETERS['CHANNELS']:
         CHANNELS = PARAMETERS['CHANNELS']
 
-    if PARAMETERS['CHANNELS']:
-        B_CHANNELS = PARAMETERS['CHANNELS']
+    if PARAMETERS['B_CHANNEL']:
+        B_CHANNEL = PARAMETERS['B_CHANNEL']
 
 def time_elapsed(func):
     # This function shows the execution time of
@@ -140,13 +140,12 @@ def file_ext_check(input_path, img_format):
                     type_list[i_file] = 'bmask'
                 else:
                     channel_name = re.findall(" C=[a-zA-Z0-9]+", name)
-                    print(channel_name)
-                    channel_name[0] = channel_name[0].replace(' C=', '')
-                    print(channel_name)
+                    channel = channel_name[0].replace(' C=', '')
                     if len(channel_name) == 1:
-                        type_list[i_file] = channel_name[0]
-                        if channel_name[0] not in channel_name_list:
-                            channel_name_list.append(channel_name[0])
+                        type_list[i_file] = channel
+                        channel = int(channel)
+                        if channel not in other_ch_ind_list and channel != B_CHANNEL:
+                            other_ch_ind_list.append(channel)
 
                     if len(channel_name) != 1:
                         error_logging('high', 'not in exception', 'multiple/no channels in file name', str(row_file))
@@ -158,7 +157,7 @@ def file_ext_check(input_path, img_format):
             print('wrong file format')
             error_logging('low', 'not in exception', 'wrong file format', str(row_file))
 
-    print('channel name list: ', channel_name_list)
+    print('channel ind list: ', other_ch_ind_list)
     file_table = pl.DataFrame({"file": file_list, "type": type_list})
     return file_table
 
@@ -327,7 +326,7 @@ def detect_collide(bmask_y, bmask_x, bmask, edge_num, cast_num):
         overlap_xy.append([bmask_y, bmask_x])
 
 
-def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, branch_data,
+def edge_recur(y_edge, x_edge, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output, branch_data,
                count, close_flag, last_dir=None):
     # os.system('cls')
     # time.sleep(1)
@@ -345,7 +344,7 @@ def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num
     if b_mask[y_edge, x_edge] == 254:
         overlap_xy.append([y_edge, x_edge])
 
-    record_ring(y_edge, x_edge, ring_output, branch_data, ring_map[y_edge, x_edge], contact_map[y_edge, x_edge],
+    record_ring(y_edge, x_edge, ring_output, branch_data, base_inten, other_inten,
                 count, b_mask[y_edge, x_edge] == 254, close_flag)
 
     if count > 1 and ((y_edge + 1 == ring_output['ring_y'][0] and x_edge == ring_output['ring_x'][0]) or
@@ -361,88 +360,88 @@ def edge_recur(y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num
     if y_edge > yc and x_edge <= xc:
         # go right
         if b_mask[y_edge, x_edge + 1] == edge_num or (b_mask[y_edge, x_edge + 1] == 254):
-            edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge, x_edge + 1, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='r')
 
         # go down
         if b_mask[y_edge + 1, x_edge] == edge_num or (b_mask[y_edge + 1, x_edge] == 254):
-            edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge + 1, x_edge, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='d')
 
         # go up
         if b_mask[y_edge - 1, x_edge] == edge_num or (b_mask[y_edge - 1, x_edge] == 254):
-            edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge - 1, x_edge, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='u')
 
         # go left
         if b_mask[y_edge, x_edge - 1] == edge_num or (b_mask[y_edge, x_edge - 1] == 254):
-            edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge, x_edge - 1, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='l')
 
     # 4th quadrant
     if x_edge > xc and y_edge >= yc:
         # go up
         if b_mask[y_edge - 1, x_edge] == edge_num or (b_mask[y_edge - 1, x_edge] == 254):
-            edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge - 1, x_edge, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='u')
 
         # go right
         if b_mask[y_edge, x_edge + 1] == edge_num or (b_mask[y_edge, x_edge + 1] == 254):
-            edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge, x_edge + 1, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='r')
 
         # go left
         if b_mask[y_edge, x_edge - 1] == edge_num or (b_mask[y_edge, x_edge - 1] == 254):
-            edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge, x_edge - 1, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='l')
 
         # go down
         if b_mask[y_edge + 1, x_edge] == edge_num or (b_mask[y_edge + 1, x_edge] == 254):
-            edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge + 1, x_edge, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='d')
 
     # 1st quadrant
     if y_edge < yc and x_edge >= xc:
         # go left
         if b_mask[y_edge, x_edge - 1] == edge_num or (b_mask[y_edge, x_edge - 1] == 254):
-            edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge, x_edge - 1, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='l')
 
         # go up
         if b_mask[y_edge - 1, x_edge] == edge_num or (b_mask[y_edge - 1, x_edge] == 254):
-            edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge - 1, x_edge, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='u')
 
         # go right
         if b_mask[y_edge, x_edge + 1] == edge_num or (b_mask[y_edge, x_edge + 1] == 254):
-            edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge, x_edge + 1, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='r')
 
         # go down
         if b_mask[y_edge + 1, x_edge] == edge_num or (b_mask[y_edge + 1, x_edge] == 254):
-            edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge + 1, x_edge, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='d')
 
     # 2nd quadrant
     if x_edge < xc and y_edge <= yc:
         # go down
         if b_mask[y_edge + 1, x_edge] == edge_num or (b_mask[y_edge + 1, x_edge] == 254):
-            edge_recur(y_edge + 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge + 1, x_edge, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='d')
 
         # go left
         if b_mask[y_edge, x_edge - 1] == edge_num or (b_mask[y_edge, x_edge - 1] == 254):
-            edge_recur(y_edge, x_edge - 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge, x_edge - 1, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='l')
 
         # go up
         if b_mask[y_edge - 1, x_edge] == edge_num or (b_mask[y_edge - 1, x_edge] == 254):
-            edge_recur(y_edge - 1, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge - 1, x_edge, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='u')
 
         # go right
         if b_mask[y_edge, x_edge + 1] == edge_num or (b_mask[y_edge, x_edge + 1] == 254):
-            edge_recur(y_edge, x_edge + 1, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output,
+            edge_recur(y_edge, x_edge + 1, b_mask, base_inten, other_inten, edge_num, cast_num, yc, xc, ring_output,
                        branch_data, count, closed, last_dir='r')
 
     # # collide edge
@@ -467,7 +466,7 @@ def rm_inner_casting(y, x, bmask, target):
         action_on_neighbors(y, x, False, rm_inner_casting, bmask, target)
 
 
-def record_ring(y_edge, x_edge, ring_output, branch_output, ring_inten, contact_inten, count, overlap_flag, close_flag):
+def record_ring(y_edge, x_edge, ring_output, branch_output, base_inten, other_inten, count, overlap_flag, close_flag):
     # check if ring is closed
     if not closed[0]:
         if ring_output['ring_y'][count] != 0 and ring_output['ring_x'][count] != 0:
@@ -477,18 +476,23 @@ def record_ring(y_edge, x_edge, ring_output, branch_output, ring_inten, contact_
             branch_output['index'][count] = count
             branch_output['ring_y'][count] = y_edge
             branch_output['ring_x'][count] = x_edge
-            branch_output['ring_inten'][count] = ring_inten
-            branch_output['contact_inten'][count] = contact_inten
+            branch_output[base_inten][count] = base_inten[y_edge,x_edge]
+            # branch_output['contact_inten'][count] = other_inten
             branch_output['overlap'][count] = overlap_flag
+
+            for ch_key in other_ch_ind_list:
+                branch_output[CHANNELS[ch_key] + '_inten'] = other_inten[ch_key][y_edge,x_edge]
             # if overlap_flag is True:
             #     branch_output['overlap'][count] = True
         else:
             ring_output['index'][count] = count
             ring_output['ring_y'][count] = y_edge
             ring_output['ring_x'][count] = x_edge
-            ring_output['ring_inten'][count] = ring_inten
-            ring_output['contact_inten'][count] = contact_inten
+            ring_output['ring_inten'][count] = base_inten
+            # ring_output['contact_inten'][count] = other_inten
             ring_output['overlap'][count] = overlap_flag
+            for ch_key in other_ch_ind_list:
+                ring_output[CHANNELS[ch_key] + '_inten'] = other_inten[ch_key][y_edge,x_edge]
             # if overlap_flag is True:
             #     ring_output['overlap'][count] = True
     # return close_flag
@@ -565,7 +569,7 @@ if __name__ == '__main__':
     # # print(bmask_path, bmask_table_path, droplet_path, contact_path)
     # os.makedirs(output_path)
     # check format in batch
-    channel_name_list = []
+    other_ch_ind_list = []
     file_lookup_list = file_ext_check(INPUT_PATH, INPUT_FORMAT)
     print(file_lookup_list)
     input("please press enter to proceed...")
@@ -605,43 +609,60 @@ if __name__ == '__main__':
         # load droplet intensity
         try:
             map_droplet = Image.open(os.path.realpath(INPUT_PATH + '/' + raw_file_name + ".tif"))
-            arr_droplet = np.array(map_droplet)
+            base_ch = np.array(map_droplet)
         except Exception as e:
             print(e)
             error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name + ".tif")
             continue
 
-        # load contact intensity
-        try:
-            # print(os.path.realpath(contact_path + '/' + raw_file_name + ".tif"))
-            map_contact = Image.open(
-                os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace(" C=0_", " C=1_") + ".tif"))
-            arr_contact = np.array(map_contact)
-        except Exception as e:
-            print(e)
-            error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name.replace(" C=0_", " C=1_") + ".tif")
-            continue
-        # for ch in channel_name_list:
-        #     if int(ch) != 0:
-        #         try:
-        #             # print(os.path.realpath(contact_path + '/' + raw_file_name + ".tif"))
-        #             map_contact = Image.open(
-        #                 os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace(" C=0_", " C="+ ch + "_") + ".tif"))
-        #             arr_contact = np.array(map_contact)
-        #         except Exception as e:
-        #             print(e)
-        #             error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name.replace(" C=0_", " C=1_") + ".tif")
-        #             continue
+        # # load contact intensity
+        # try:
+        #     # print(os.path.realpath(contact_path + '/' + raw_file_name + ".tif"))
+        #     map_contact = Image.open(
+        #         os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace(" C=0_", " C=1_") + ".tif"))
+        #     arr_contact = np.array(map_contact)
+        # except Exception as e:
+        #     print(e)
+        #     error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name.replace(" C=0_", " C=1_") + ".tif")
+        #     continue
+        other_chs = {}
 
+        for ch in other_ch_ind_list:
+            if int(ch) != B_CHANNEL:
+                try:
+                    # print(os.path.realpath(contact_path + '/' + raw_file_name + ".tif"))
+                    map_inten = Image.open(
+                        os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace(" C=0_", " C=" + str(ch) + "_") + ".tif"))
+                    other_chs[ch] = np.array(map_inten)
+                    arr_contact = np.array(map_inten)
+                except Exception as e:
+                    print(e)
+                    error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name.replace(" C=0_", " C="+ str(ch) + "_") + ".tif")
+                    continue
+
+        print(other_chs.keys())
         # view raw images and binary mask
         if SHOW_PLOTS:
-            fig_input, ax_input = plt.subplots(nrows=1,ncols=2, figsize=(22,18), layout='tight')
+            fig_input, ax_input = plt.subplots(nrows=1, ncols=1+len(other_ch_ind_list), figsize=(8*(1+len(other_ch_ind_list)), 9), layout='tight')
             fig_input.suptitle(f'input images: {item["file"]}', fontsize=16)
 
-            ax_input[0].imshow(arr_droplet)
+            ax_input[0].imshow(base_ch)
             ax_input[0].set_title('halo dye channel')
-            ax_input[1].imshow(arr_contact)
-            ax_input[1].set_title('FABCCON channel')
+            # ax_input[1].imshow(arr_contact)
+            for ch_i, ch in enumerate(other_ch_ind_list):
+                print(ch_i, ch,other_ch_ind_list)
+                ax_input[ch_i+1].imshow(other_chs[ch])
+                ax_input[ch_i+1].set_title(f'{CHANNELS[ch]} channel')
+                for row_cen in arr_cen.iter_rows(named=True):
+                    label = f"{row_cen['object_id']}"
+                    ax_input[ch_i+1].annotate(label,  # this is the text
+                                         (int(round(row_cen['Object Center_0'], 0)),
+                                          int(round(row_cen['Object Center_1'], 0))),
+                                         color='red',
+                                         # these are the coordinates to position the label
+                                         textcoords="offset points",  # how to position the text
+                                         xytext=(0, 0),  # distance from text to points (x,y)
+                                         ha='center')  # horizontal alignment can be left, right or center
             for row_cen in arr_cen.iter_rows(named=True):
                 label = f"{row_cen['object_id']}"
                 ax_input[0].annotate(label,  # this is the text
@@ -651,25 +672,26 @@ if __name__ == '__main__':
                             textcoords="offset points",  # how to position the text
                             xytext=(0, 0),  # distance from text to points (x,y)
                             ha='center')  # horizontal alignment can be left, right or center
-                ax_input[1].annotate(label,  # this is the text
-                                 (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
-                                 color='red',
-                                 # these are the coordinates to position the label
-                                 textcoords="offset points",  # how to position the text
-                                 xytext=(0, 0),  # distance from text to points (x,y)
-                                 ha='center')  # horizontal alignment can be left, right or center
+
             plt.draw()
 
         t = 0
 
         # subtract background intensity
         if BK_SUB:
-            droplet_1d_sort = np.sort(arr_droplet, axis=None)
-            contact_1d_sort = np.sort(arr_contact, axis=None)
+            droplet_1d_sort = np.sort(base_ch, axis=None)
             background_droplet = np.sum(droplet_1d_sort[0:100]) / 100
-            background_contact = np.sum(contact_1d_sort[0:100]) / 100
-            arr_droplet -= int(background_droplet)
-            arr_contact -= int(background_contact)
+            base_ch -= int(background_droplet)
+
+            # contact_1d_sort = np.sort(arr_contact, axis=None)
+            # background_contact = np.sum(contact_1d_sort[0:100]) / 100
+            # arr_contact -= int(background_contact)
+
+            for ch in other_ch_ind_list:
+                contact_1d_sort = np.sort(other_chs[ch], axis=None)
+                background_contact = np.sum(contact_1d_sort[0:100]) / 100
+                other_chs[ch] -= int(background_contact)
+
 
         plot_y_max_droplet = 0
         plot_y_max_contact = 0
@@ -677,6 +699,10 @@ if __name__ == '__main__':
         map_layer = np.full((RING_THICKNESS + 1, np.shape(edge_copy)[0], np.shape(edge_copy)[1]), 0)
         ring_data_image = None
         branch_data_image = None
+
+        base_inten_key = CHANNELS[B_CHANNEL] + '_inten'
+        # other_ch_names = [[CHANNELS[key]] for key in CHANNELS.keys()]
+        print()
 
         print(arr_cen)
         while t < RING_THICKNESS:
@@ -693,31 +719,34 @@ if __name__ == '__main__':
                 print(row['object_id'], ring_len)
                 overlap_xy = []
                 closed = [False]
-                ring_data = {
-                    'image': np.full((ring_len,), raw_file_name),
-                    'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
-                    'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
-                    'index': np.zeros((ring_len,), dtype=np.uint16),
-                    'ring_y': np.zeros((ring_len,), dtype=np.uint16),
-                    'ring_x': np.zeros((ring_len,), dtype=np.uint16),
-                    'ring_inten': np.zeros((ring_len,), dtype=np.uint16),
-                    'contact_inten': np.zeros((ring_len,), dtype=np.uint16),
-                    'overlap': np.full((ring_len,), False, dtype=bool),
-                    'closed': np.full((ring_len,), False, dtype=bool)
-                }
+                ring_data = {'image': np.full((ring_len,), raw_file_name),
+                             'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
+                             'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
+                             'index': np.zeros((ring_len,), dtype=np.uint16),
+                             'y': np.zeros((ring_len,), dtype=np.uint16), 'x': np.zeros((ring_len,), dtype=np.uint16),
+                             'overlap': np.full((ring_len,), False, dtype=bool),
+                             'closed': np.full((ring_len,), False, dtype=bool),
+                             base_inten_key: np.zeros((ring_len,), dtype=np.uint16)}
 
-                branch_data = {
-                    'image': np.full((ring_len,), raw_file_name),
-                    'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
-                    'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
-                    'index': np.zeros((ring_len,), dtype=np.uint16),
-                    'ring_y': np.zeros((ring_len,), dtype=np.uint16),
-                    'ring_x': np.zeros((ring_len,), dtype=np.uint16),
-                    'ring_inten': np.zeros((ring_len,), dtype=np.uint16),
-                    'contact_inten': np.zeros((ring_len,), dtype=np.uint16),
-                    'overlap': np.full((ring_len,), False, dtype=bool),
-                    'closed': np.full((ring_len,), False, dtype=bool)
-                }
+                for key in other_ch_ind_list:
+                    ring_data[CHANNELS[key]+'_inten'] = np.zeros((ring_len,), dtype=np.uint16)
+
+                branch_data = copy.deepcopy(ring_data)
+
+                print(ring_data.keys(), branch_data.keys())
+                input('....')
+                # branch_data = {
+                #     'image': np.full((ring_len,), raw_file_name),
+                #     'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
+                #     'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
+                #     'index': np.zeros((ring_len,), dtype=np.uint16),
+                #     'ring_y': np.zeros((ring_len,), dtype=np.uint16),
+                #     'ring_x': np.zeros((ring_len,), dtype=np.uint16),
+                #     # 'ring_inten': np.zeros((ring_len,), dtype=np.uint16),
+                #     # 'contact_inten': np.zeros((ring_len,), dtype=np.uint16),
+                #     'overlap': np.full((ring_len,), False, dtype=bool),
+                #     'closed': np.full((ring_len,), False, dtype=bool)
+                # }
 
                 # track centroid for each void
 
@@ -763,7 +792,7 @@ if __name__ == '__main__':
                 print("void info:", y_Start, cen_x, edge, cast, edge_copy[y_Start, cen_x], row['object_id'])
 
                 try:
-                    edge_recur(y_Start, cen_x, edge_copy, arr_droplet, arr_contact, edge, cast, cen_y, cen_x, ring_data,
+                    edge_recur(y_Start, cen_x, edge_copy, base_ch, other_chs, edge, cast, cen_y, cen_x, ring_data,
                                branch_data, 0,
                                closed)  # y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, count, last_dir= None
                 except:
@@ -784,13 +813,15 @@ if __name__ == '__main__':
                         print("swap branch data.....")
                         print(ring_data['ring_y'][dup_i + 1], ring_data['ring_x'][dup_i + 1],
                               branch_data['ring_y'][i_branch], branch_data['ring_x'][i_branch])
-                        temp = [ring_data['ring_y'][dup_i], ring_data['ring_x'][dup_i],
-                                ring_data['ring_inten'][dup_i],
-                                ring_data['contact_inten'][dup_i]]
-                        ring_data['ring_y'][dup_i] = branch_data['ring_y'][i_branch]
-                        ring_data['ring_x'][dup_i] = branch_data['ring_x'][i_branch]
-                        ring_data['ring_inten'][dup_i] = branch_data['ring_inten'][i_branch]
-                        ring_data['contact_inten'][dup_i] = branch_data['contact_inten'][i_branch]
+                        swap_list = ['ring_y','ring_x', base_inten_key]
+                        for ch_key in other_ch_ind_list:
+                            swap_list.append([CHANNELS[ch_key] + '_inten'])
+
+                        temp = {}
+                        for k in swap_list:
+                            temp[k] = ring_data[k][dup_i]
+                            ring_data[k][dup_i] = branch_data[k][i_branch]
+                            branch_data[k][i_branch] = temp[k]
 
                 # check ring if closed and decide the flag
                 if closed[0]:
