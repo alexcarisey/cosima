@@ -15,23 +15,25 @@ class App(tk.Tk):
             parameter_setting = {"INPUT_PATH": folder_path.get(),
                                  "ERODE_THICKNESS": erode_thickness.get(),
                                  "RING_THICKNESS": ring_thickness.get(),
-                                 "RDO_AVER": rdo_aver.get(),
-                                 "RDO_AVER_START": rdo_aver_start.get() if rdo_aver.get() else 0,
-                                 "RDO_AVER_END": rdo_aver_end.get() if rdo_aver.get() else 0,
+                                 "RDL_AVER": rdl_aver.get(),
+                                 "RDL_AVER_START": rdl_aver_start.get() if rdl_aver.get() else 0,
+                                 "RDL_AVER_END": rdl_aver_end.get() if rdl_aver.get() else 0,
                                  "BK_SUB": background_sub.get(),
                                  "SHOW_OVERLAP": show_overlap.get(),
-                                 "SHOW_PLOTS": show_plots.get()
+                                 "SHOW_PLOTS": show_plots.get(),
+                                 "CHANNELS": ch_info,
+                                 "B_CHANNEL": ch_base.get()
                                  }
             print(str(parameter_setting))
 
-            if rdo_aver_end.get() > ring_thickness.get():
-                err_msg_lb.configure(text="Wrong setting: compression end layer exceed thickness!")
+            if rdl_aver_end.get() > ring_thickness.get():
+                err_msg_lb.configure(text="Wrong setting: end layer exceed thickness!")
 
-            elif rdo_aver_start.get() > ring_thickness.get():
-                err_msg_lb.configure(text="Wrong setting: compression starting layer exceed thickness!")
+            elif rdl_aver_start.get() > ring_thickness.get():
+                err_msg_lb.configure(text="Wrong setting: tarting layer exceed thickness!")
 
-            elif rdo_aver_start.get() > rdo_aver_end.get():
-                err_msg_lb.configure(text="Wrong setting: compression starting layer smaller than end layer!")
+            elif rdl_aver_start.get() > rdl_aver_end.get():
+                err_msg_lb.configure(text="Wrong setting: starting layer smaller than end layer!")
 
             else:
                 err_msg_lb.configure(text="valid setting, proceed to analysis...")
@@ -49,61 +51,66 @@ class App(tk.Tk):
 
         def ring_slider_changed(event):
             # ring_slider.get()
-            # rdo_aver_start_max.set(ring_thickness.get())
-            # print(rdo_aver_start_max.get())
+            # rdl_aver_start_max.set(ring_thickness.get())
+            # print(rdl_aver_start_max.get())
             # print(int(event))
             ring_slide_num_lb.configure(text=get_current_value(ring_thickness))
-            if rdo_aver.get():
-                rdo_aver_start_slider.configure(to=ring_thickness.get())
-                rdo_aver_start_slider.update_idletasks()
-                rdo_aver_end.set(ring_thickness.get())
-                rdo_aver_end_slider_num_lb.configure(text=get_current_value(rdo_aver_end))
-                rdo_aver_end_slider.configure(to=ring_thickness.get())
-                rdo_aver_end_slider.update_idletasks()
+            if rdl_aver.get():
+                rdl_aver_start_slider.configure(to=ring_thickness.get())
+                rdl_aver_start_slider.update_idletasks()
+                rdl_aver_end.set(ring_thickness.get())
+                rdl_aver_end_slider_num_lb.configure(text=get_current_value(rdl_aver_end))
+                rdl_aver_end_slider.configure(to=ring_thickness.get())
+                rdl_aver_end_slider.update_idletasks()
 
-        def rdo_aver_start_slider_changed(event):
+        def rdl_aver_start_slider_changed(event):
             # ring_slider.get()
-            rdo_aver_end_slider.configure(from_=rdo_aver_start.get())
-            rdo_aver_end_slider.update_idletasks()
-            rdo_aver_start_slider_num_lb.configure(text=get_current_value(rdo_aver_start))
+            rdl_aver_end_slider.configure(from_=rdl_aver_start.get())
+            rdl_aver_end_slider.update_idletasks()
+            rdl_aver_start_slider_num_lb.configure(text=get_current_value(rdl_aver_start))
 
-        def rdo_aver_end_slider_changed(event):
+        def rdl_aver_end_slider_changed(event):
             # ring_slider.get()
-            rdo_aver_end_slider_num_lb.configure(text=get_current_value(rdo_aver_end))
-            rdo_aver_start_slider.configure(to=rdo_aver_end.get())
-            rdo_aver_start_slider.update_idletasks()
+            rdl_aver_end_slider_num_lb.configure(text=get_current_value(rdl_aver_end))
+            rdl_aver_start_slider.configure(to=rdl_aver_end.get())
+            rdl_aver_start_slider.update_idletasks()
 
         def get_current_value(part):
             return part.get()
 
-        def toggle_rdo_aver():
-            print(rdo_aver.get())
-            if rdo_aver.get():
-                rdo_aver_start_slider.configure(state=tk.ACTIVE)
-                rdo_aver_end_slider.configure(state=tk.ACTIVE)
+        def toggle_rdl_aver():
+            print(rdl_aver.get())
+            if rdl_aver.get():
+                rdl_aver_start_slider.configure(state=tk.ACTIVE)
+                rdl_aver_end_slider.configure(state=tk.ACTIVE)
             else:
-                rdo_aver_start_slider.configure(state=tk.DISABLED)
-                rdo_aver_end_slider.configure(state=tk.DISABLED)
+                rdl_aver_start_slider.configure(state=tk.DISABLED)
+                rdl_aver_end_slider.configure(state=tk.DISABLED)
+
+                rdl_aver_start.set(1)
+                rdl_aver_end.set(1)
+                rdl_aver_start_slider_num_lb.configure(text=rdl_aver_start.get())
+                rdl_aver_end_slider_num_lb.configure(text=rdl_aver_end.get())
 
         def pick_ch_num(event):
-            print('check')
-
+            if ch_num.get() in ch_info.keys():
+                ch_name.set(ch_info[ch_num.get()])
+            else:
+                ch_name.set('')
 
         def add_channel():
-            ch_info[ch_num_option.get()] = ch_name.get()
-            if ch_num_option.get() == ch_num_list[-1]:
-                ch_num_list.append(ch_num_option.get()+1)
-                # ch_num_option.set(ch_num_option.get()+1)
-                ch_num_opt['menu'].delete(0, 'end')  # remove full list
+            ch_info[ch_num.get()] = ch_name.get()
+            if ch_num.get() == ch_num_list[-1]:
+                ch_num_list.append(ch_num.get()+1)
+                # ch_num.set(ch_num.get()+1)
+                ch_num_opt['menu'].delete(0, 'end')
+                ch_base_opt['menu'].delete(0, 'end')# remove full list
                 # ch_num_opt['menu'].add_command(command=pick_ch_num())
                 for opt in ch_num_list:
-                    ch_num_opt['menu'].add_command(label=opt, command=tk._setit(ch_num_option, opt, pick_ch_num))
-
-                ch_num_option.set(ch_num_list[-1])
-            # if ch_num_option not in ch_info.keys():
-
-            print(ch_info)
-
+                    ch_num_opt['menu'].add_command(label=opt, command=tk._setit(ch_num, opt, pick_ch_num))
+                    ch_base_opt['menu'].add_command(label=opt, command=tk._setit(ch_base, opt))
+                ch_num.set(ch_num_list[-1])
+                ch_name.set('')
 
 
 
@@ -119,30 +126,30 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=3)
 
-        ch_num_list = [1]
-        ch_num_option = tk.IntVar(self, value=ch_num_list[0])
-        # ch_num_option.set(ch_num_list[0])
+        ch_num_list = [0]
+        ch_num = tk.IntVar(self, value=ch_num_list[0])
+        # ch_num.set(ch_num_list[0])
 
         # ch_num_list = list
         ch_nums = list
         ch_names = list
         ch_info = {
-            1: '',
+            0: '',
         }
 
         folder_path = tk.StringVar(self, value=r'./input')
         erode_thickness = tk.IntVar(self, value=0)
         ring_thickness = tk.IntVar(self, value=1)
-        rdo_aver_start = tk.IntVar(self, value=1)
-        rdo_aver_start_max = tk.IntVar(self, value=20)
-        rdo_aver_end = tk.IntVar(self, value=1)
-        rdo_aver_end_max = tk.IntVar(self, value=1)
-        rdo_aver_end_min = tk.IntVar(self, value=20)
+        rdl_aver_start = tk.IntVar(self, value=1)
+        rdl_aver_start_max = tk.IntVar(self, value=20)
+        rdl_aver_end = tk.IntVar(self, value=1)
+        rdl_aver_end_max = tk.IntVar(self, value=1)
+        rdl_aver_end_min = tk.IntVar(self, value=20)
         background_sub = tk.BooleanVar(self, value=True)
         show_overlap = tk.BooleanVar(self, value=True)
         show_plots = tk.BooleanVar(self, value=True)
-        rdo_aver = tk.BooleanVar(self, value=True)
-        ch_num = tk.IntVar(self)
+        rdl_aver = tk.BooleanVar(self, value=True)
+        ch_base = tk.IntVar(self, value=0)
         ch_name = tk.StringVar(self)
 
         # heading
@@ -200,53 +207,53 @@ class App(tk.Tk):
         ring_slide_num_lb.grid(column=2, row=3, sticky=tk.W, **paddings)
 
         # radio average setting
-        rdo_aver_lb = ttk.Label(self, text="Radio Average:")
-        rdo_aver_lb.grid(column=0, row=4, columnspan=2, sticky=tk.W, **paddings)
+        rdl_aver_lb = ttk.Label(self, text="Radial Average:")
+        rdl_aver_lb.grid(column=0, row=4, columnspan=2, sticky=tk.W, **paddings)
 
-        rdo_aver_check = ttk.Checkbutton(
+        rdl_aver_check = ttk.Checkbutton(
             self,
-            variable=rdo_aver,
-            command=toggle_rdo_aver
+            variable=rdl_aver,
+            command=toggle_rdl_aver
         )
-        rdo_aver_check.grid(column=1, row=4, sticky=tk.E, **paddings)
+        rdl_aver_check.grid(column=1, row=4, sticky=tk.E, **paddings)
 
-        rdo_aver_start_lb = ttk.Label(self, text="Starting Layer:")
-        rdo_aver_start_lb.grid(column=0, row=5, sticky=tk.W, **paddings)
+        rdl_aver_start_lb = ttk.Label(self, text="Starting Layer:")
+        rdl_aver_start_lb.grid(column=0, row=5, sticky=tk.W, **paddings)
 
-        rdo_aver_start_slider = ttk.Scale(
-            self,
-            from_=1,
-            to=rdo_aver_start_max.get(),
-            orient='horizontal',  # horizontal
-            variable=rdo_aver_start,
-            command=rdo_aver_start_slider_changed,
-        )
-        rdo_aver_start_slider.grid(column=1, row=5, sticky=tk.EW, **paddings)
-
-        rdo_aver_start_slider_num_lb = ttk.Label(
-            self,
-            text=get_current_value(rdo_aver_start)
-        )
-        rdo_aver_start_slider_num_lb.grid(column=2, row=5, sticky=tk.W, **paddings)
-
-        rdo_aver_end_lb = ttk.Label(self, text="End Layer:")
-        rdo_aver_end_lb.grid(column=0, row=6, sticky=tk.W, **paddings)
-
-        rdo_aver_end_slider = ttk.Scale(
+        rdl_aver_start_slider = ttk.Scale(
             self,
             from_=1,
-            to=20,
+            to=rdl_aver_end.get(),
             orient='horizontal',  # horizontal
-            variable=rdo_aver_end,
-            command=rdo_aver_end_slider_changed,
+            variable=rdl_aver_start,
+            command=rdl_aver_start_slider_changed,
         )
-        rdo_aver_end_slider.grid(column=1, row=6, sticky=tk.EW, **paddings)
+        rdl_aver_start_slider.grid(column=1, row=5, sticky=tk.EW, **paddings)
 
-        rdo_aver_end_slider_num_lb = ttk.Label(
+        rdl_aver_start_slider_num_lb = ttk.Label(
             self,
-            text=get_current_value(rdo_aver_end)
+            text=get_current_value(rdl_aver_start)
         )
-        rdo_aver_end_slider_num_lb.grid(column=2, row=6, sticky=tk.W, **paddings)
+        rdl_aver_start_slider_num_lb.grid(column=2, row=5, sticky=tk.W, **paddings)
+
+        rdl_aver_end_lb = ttk.Label(self, text="End Layer:")
+        rdl_aver_end_lb.grid(column=0, row=6, sticky=tk.W, **paddings)
+
+        rdl_aver_end_slider = ttk.Scale(
+            self,
+            from_=1,
+            to=ring_thickness.get(),
+            orient='horizontal',  # horizontal
+            variable=rdl_aver_end,
+            command=rdl_aver_end_slider_changed,
+        )
+        rdl_aver_end_slider.grid(column=1, row=6, sticky=tk.EW, **paddings)
+
+        rdl_aver_end_slider_num_lb = ttk.Label(
+            self,
+            text=get_current_value(rdl_aver_end)
+        )
+        rdl_aver_end_slider_num_lb.grid(column=2, row=6, sticky=tk.W, **paddings)
 
         # background sub
         bk_sub_lb = ttk.Label(self, text="Background subtraction:")
@@ -285,7 +292,7 @@ class App(tk.Tk):
 
         ch_num_opt = ttk.OptionMenu(
             self,
-            ch_num_option,
+            ch_num,
             # ch_num_list[0],
             *ch_num_list,
             command=pick_ch_num
@@ -297,6 +304,20 @@ class App(tk.Tk):
         ch_name_entry.grid(column=1, row=80, columnspan=1, sticky=tk.EW, **paddings)
         add_ch_btn = ttk.Button(self, text="Add", command=add_channel)
         add_ch_btn.grid(column=2, row=80, sticky=tk.E, **paddings)
+
+        # base select
+        ch_base_lb = ttk.Label(self, text="Base channel:")
+        ch_base_lb.grid(column=0, row=81, columnspan=1, sticky=tk.W, **paddings)
+
+        ch_base_opt = ttk.OptionMenu(
+            self,
+            ch_base,
+            # ch_num_list[0],
+            *ch_num_list,
+
+
+        )
+        ch_base_opt.grid(column=0, row=81, sticky=tk.E, **paddings)
 
         # error message
         err_msg_lb = ttk.Label(self, text="")

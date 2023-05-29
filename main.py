@@ -58,9 +58,11 @@ BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 4
 ERODE_THICKNESS = 0
 INPUT_PATH = os.path.realpath(r'./input')
-RDO_AVER_START = 0
-RDO_AVER_END = RING_THICKNESS-1
+RDL_AVER_START = 0
+RDL_AVER_END = RING_THICKNESS-1
 SHOW_PLOTS = True
+CHANNELS = {0: '0', 1: '1'}
+B_CHANNEL = 0
 # if len(sys.argv) == 1:
 #     RING_THICKNESS = 5
 #     INPUT_PATH = os.path.realpath(r'./input')
@@ -68,9 +70,7 @@ SHOW_PLOTS = True
 #     PG_END = RING_THICKNESS
 
 if len(sys.argv) > 1:
-
     PARAMETERS = eval(sys.argv[1])
-
     print(PARAMETERS)
     if PARAMETERS['INPUT_PATH']:
         INPUT_PATH = PARAMETERS['INPUT_PATH']
@@ -89,15 +89,21 @@ if len(sys.argv) > 1:
         print(PARAMETERS['SHOW_OVERLAP'])
         SHOW_OVERLAP = PARAMETERS['SHOW_OVERLAP']
 
-    if type(PARAMETERS['RDO_AVER_START']) is int:
-        RDO_AVER_START = PARAMETERS['RDO_AVER_START']-1
+    if type(PARAMETERS['RDL_AVER_START']) is int:
+        RDL_AVER_START = PARAMETERS['RDL_AVER_START']-1
 
-    if type(PARAMETERS['RDO_AVER_END']) is int:
-        RDO_AVER_END = PARAMETERS['RDO_AVER_END']-1
+    if type(PARAMETERS['RDL_AVER_END']) is int:
+        RDL_AVER_END = PARAMETERS['RDL_AVER_END']-1
 
     if not PARAMETERS['SHOW_PLOTS']:
         # print(PARAMETERS['SHOW_OVERLAP'])
         SHOW_PLOTS = PARAMETERS['SHOW_PLOTS']
+
+    if PARAMETERS['CHANNELS']:
+        CHANNELS = PARAMETERS['CHANNELS']
+
+    if PARAMETERS['CHANNELS']:
+        B_CHANNELS = PARAMETERS['CHANNELS']
 
 def time_elapsed(func):
     # This function shows the execution time of
@@ -125,6 +131,7 @@ def file_ext_check(input_path, img_format):
         name = os.path.splitext(row_file)[0]
         ext = os.path.splitext(row_file)[-1].lower()
         file_list[i_file] = name
+
         if ext in img_format.keys():
             if re.search("_table", name) and ext == ".csv":
                 type_list[i_file] = 'bmask_table'
@@ -132,14 +139,26 @@ def file_ext_check(input_path, img_format):
                 if re.search("_Object Predictions", name):
                     type_list[i_file] = 'bmask'
                 else:
-                    if re.search(" C=0_", name):
-                        type_list[i_file] = 'halo'
-                    if re.search(" C=1_", name):
-                        type_list[i_file] = 'contact'
+                    channel_name = re.findall(" C=[a-zA-Z0-9]+", name)
+                    print(channel_name)
+                    channel_name[0] = channel_name[0].replace(' C=', '')
+                    print(channel_name)
+                    if len(channel_name) == 1:
+                        type_list[i_file] = channel_name[0]
+                        if channel_name[0] not in channel_name_list:
+                            channel_name_list.append(channel_name[0])
+
+                    if len(channel_name) != 1:
+                        error_logging('high', 'not in exception', 'multiple/no channels in file name', str(row_file))
+                    # if re.search(" C=0_", name):
+                    #     type_list[i_file] = 'halo'
+                    # if re.search(" C=1_", name):
+                    #     type_list[i_file] = 'contact'
         else:
             print('wrong file format')
             error_logging('low', 'not in exception', 'wrong file format', str(row_file))
 
+    print('channel name list: ', channel_name_list)
     file_table = pl.DataFrame({"file": file_list, "type": type_list})
     return file_table
 
@@ -533,7 +552,8 @@ if __name__ == '__main__':
     # if ij.WindowManager.getIDList() is None:
     #     ij.py.run_macro('newImage("dummy", "8-bit", 1, 1, 1);')
     # plt.figure()
-    print(INPUT_PATH, ERODE_THICKNESS, RING_THICKNESS, RDO_AVER_START, RDO_AVER_END, BK_SUB, SHOW_OVERLAP)
+
+    print(INPUT_PATH, ERODE_THICKNESS, RING_THICKNESS, RDL_AVER_START, RDL_AVER_END, BK_SUB, SHOW_OVERLAP, CHANNELS)
     input("...")
 
     # check first time runner
@@ -545,6 +565,7 @@ if __name__ == '__main__':
     # # print(bmask_path, bmask_table_path, droplet_path, contact_path)
     # os.makedirs(output_path)
     # check format in batch
+    channel_name_list = []
     file_lookup_list = file_ext_check(INPUT_PATH, INPUT_FORMAT)
     print(file_lookup_list)
     input("please press enter to proceed...")
@@ -600,6 +621,17 @@ if __name__ == '__main__':
             print(e)
             error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name.replace(" C=0_", " C=1_") + ".tif")
             continue
+        # for ch in channel_name_list:
+        #     if int(ch) != 0:
+        #         try:
+        #             # print(os.path.realpath(contact_path + '/' + raw_file_name + ".tif"))
+        #             map_contact = Image.open(
+        #                 os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace(" C=0_", " C="+ ch + "_") + ".tif"))
+        #             arr_contact = np.array(map_contact)
+        #         except Exception as e:
+        #             print(e)
+        #             error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name.replace(" C=0_", " C=1_") + ".tif")
+        #             continue
 
         # view raw images and binary mask
         if SHOW_PLOTS:
@@ -878,9 +910,9 @@ if __name__ == '__main__':
                 plot_data[i][x]['contact_inten'] = contact_inter(new_x)
 
                 # set up compression intensity
-                if RDO_AVER_END > RDO_AVER_START and RDO_AVER_START <= x <= RDO_AVER_END:
+                if RDL_AVER_END > RDL_AVER_START and RDL_AVER_START <= x <= RDL_AVER_END:
                     # initialize first compression layer
-                    if x == RDO_AVER_START:
+                    if x == RDL_AVER_START:
                         plot_data[i][-1]['ring_inten'] = np.array(plot_data[i][x]['ring_inten'])
                         plot_data[i][-1]['contact_inten'] = np.array(plot_data[i][x]['contact_inten'])
                     plot_data[i][-1]['ring_inten'] = np.add(plot_data[i][-1]['ring_inten'],
@@ -888,12 +920,12 @@ if __name__ == '__main__':
                     plot_data[i][-1]['contact_inten'] = np.add(plot_data[i][-1]['contact_inten'],
                                                                np.array(plot_data[i][x]['contact_inten']))
                     # print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
-                    if x == RDO_AVER_END:
-                        plot_data[i][-1]['ring_inten'] /= (RDO_AVER_END - RDO_AVER_START + 1)
-                        plot_data[i][-1]['contact_inten'] /= (RDO_AVER_END - RDO_AVER_START + 1)
+                    if x == RDL_AVER_END:
+                        plot_data[i][-1]['ring_inten'] /= (RDL_AVER_END - RDL_AVER_START + 1)
+                        plot_data[i][-1]['contact_inten'] /= (RDL_AVER_END - RDL_AVER_START + 1)
 
                 # if no compression, copy the value of last layer for compression layer
-                if RDO_AVER_END <= RDO_AVER_START:
+                if RDL_AVER_END <= RDL_AVER_START:
                     # print('no compression')
                     plot_data[i][-1]['ring_inten'] = np.full((X_NORMALIZE,), np.nan)
                     plot_data[i][-1]['contact_inten'] = np.full((X_NORMALIZE,), np.nan)
