@@ -114,7 +114,7 @@ class App(tk.Tk):
 
 
 
-        self.geometry('450x450')
+        self.geometry('450x480')
         self.resizable(0, 0)
         self.title('COSIMA')
 

@@ -51,6 +51,7 @@ print(timestamp)
 
 output_path = os.path.realpath("./output/output_" + timestamp)
 os.makedirs(output_path)
+err_log = {'impact': [], 'e_msg': [], 'type': [], 'source': []}
 
 WALKER_MAX = 253
 X_NORMALIZE = 400
@@ -146,7 +147,13 @@ def file_ext_check(input_path, img_format):
                         channel = int(channel)
                         if channel not in other_ch_ind_list and channel != B_CHANNEL:
                             other_ch_ind_list.append(channel)
-                            other_ch_key_list.append(CHANNELS[channel]+"_inten")
+                            print(channel, CHANNELS)
+                            try:
+                                other_ch_key_list.append(CHANNELS[channel]+"_inten")
+                            except Exception as err:
+                                sys.exit('no channel ' + str(channel) + ' found from user setting')
+                                # error_logging('high', err, 'no channel ' + str(channel) + ' found from user setting',
+                                #               str(row_file))
 
                     if len(channel_name) != 1:
                         error_logging('high', 'not in exception', 'multiple/no channels in file name', str(row_file))
@@ -159,10 +166,12 @@ def file_ext_check(input_path, img_format):
             error_logging('low', 'not in exception', 'wrong file format', str(row_file))
 
     print('channel ind list: ', other_ch_ind_list)
+
     file_table = pl.DataFrame({"file": file_list, "type": type_list})
-    if len(file_table["type"]) != len(CHANNELS.keys()):
-        error_logging('high', 'not in exception', 'number of channels does not match the content in input folder', str(row_file))
-        sys.exit()
+    print(len(other_ch_ind_list)+1, len(CHANNELS.keys()))
+    if len(other_ch_ind_list)+1 != len(CHANNELS.keys()):
+        error_logging('high', 'not in exception', 'number of channels does not match the content in input folder', str(CHANNELS.keys()) + ' vs ' + str(other_ch_ind_list) + " with base: " + str(B_CHANNEL))
+        sys.exit('number of channels does not match the content in input folder')
     return file_table
 
 
@@ -532,26 +541,24 @@ def plot_layer(l=0):
 
 
 def error_logging(err_impact, e_msg, err_type, err_source):
-    err_log['impact'].append(err_impact)
-    err_log['e_msg'].append(e_msg)
-    err_log['type'].append(err_type)
-    err_log['source'].append(err_source)
-    pl.DataFrame(err_log).write_csv(output_path + "/err_log.csv")
+    print("updating error log....")
+    try:
+        err_log['impact'].append(err_impact)
+        err_log['e_msg'].append(e_msg)
+        err_log['type'].append(err_type)
+        err_log['source'].append(err_source)
+        pl.DataFrame(err_log).write_csv(output_path + "/err_log.csv")
+    except Exception as e:
+        print(e)
+    print("update complete")
+    return
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
 
-    # else:
-    #     RING_THICKNESS = 5
-    #     WALKER_MAX = 253
-    #     X_NORMALIZE = 400
-    #     INPUT_PATH = os.path.realpath(r'./input')
-    #     BK_SUB = True
-    #     SHOW_OVERLAP = True
-    #     PG_START = 0
-    #     PG_END = 1
 
-    err_log = {'impact': [], 'e_msg': [], 'type': [], 'source': []}
+
     # # change mode to headless for cluster environment
     # ij = imagej.init('sc.fiji:fiji:2.10.0', mode="interactive")
     # print(ij.getVersion())
@@ -652,7 +659,7 @@ if __name__ == '__main__':
             fig_input.suptitle(f'input images: {item["file"]}', fontsize=16)
 
             ax_input[0].imshow(base_ch)
-            ax_input[0].set_title('halo dye channel')
+            ax_input[0].set_title(f'{CHANNELS[B_CHANNEL]} channel')
             # ax_input[1].imshow(arr_contact)
             for ch_i, ch in enumerate(other_ch_ind_list):
                 print(ch_i, ch,other_ch_ind_list)
