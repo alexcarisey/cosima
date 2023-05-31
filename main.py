@@ -728,16 +728,16 @@ if __name__ == '__main__':
                 overlap_xy = []
                 closed = [False]
                 ring_data = {'image': np.full((ring_len,), raw_file_name),
-                             'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
-                             'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
-                             'index': np.zeros((ring_len,), dtype=np.uint16),
-                             'ring_y': np.zeros((ring_len,), dtype=np.uint16), 'ring_x': np.zeros((ring_len,), dtype=np.uint16),
+                             'object_id': np.full((ring_len,), row['object_id'], dtype=np.int16),
+                             'layer': np.full((ring_len,), t + 1, dtype=np.int16),
+                             'index': np.zeros((ring_len,), dtype=np.int16),
+                             'ring_y': np.zeros((ring_len,), dtype=np.int16), 'ring_x': np.zeros((ring_len,), dtype=np.int16),
                              'overlap': np.full((ring_len,), False, dtype=bool),
                              'closed': np.full((ring_len,), False, dtype=bool),
-                             base_inten_key: np.zeros((ring_len,), dtype=np.uint16)}
+                             base_inten_key: np.zeros((ring_len,), dtype=np.int16)}
 
                 for key in other_ch_ind_list:
-                    ring_data[CHANNELS[key]+'_inten'] = np.zeros((ring_len,), dtype=np.uint16)
+                    ring_data[CHANNELS[key]+'_inten'] = np.zeros((ring_len,), dtype=np.int16)
 
                 branch_data = copy.deepcopy(ring_data)
 
@@ -810,8 +810,12 @@ if __name__ == '__main__':
                 for i_branch in reversed(range(len(branch_data['index']))):
                     dup_i = branch_data['index'][i_branch]
                     # overflow
-                    if (-1 <= ring_data['ring_y'][dup_i + 1] - branch_data['ring_y'][i_branch] <= 1) and (
-                            -1 <= ring_data['ring_x'][dup_i + 1] - branch_data['ring_x'][i_branch] <= 1):
+                    if (ring_data['ring_y'][dup_i + 1] == branch_data['ring_y'][i_branch] and (ring_data['ring_x'][dup_i + 1] + 1 == branch_data['ring_x'][i_branch] or ring_data['ring_x'][dup_i + 1] - 1 == branch_data['ring_x'][i_branch])) or\
+                        (ring_data['ring_x'][dup_i + 1] == branch_data['ring_x'][i_branch] and (
+                                    ring_data['ring_y'][dup_i + 1] + 1 == branch_data['ring_y'][i_branch] or
+                                    ring_data['ring_y'][dup_i + 1] - 1 == branch_data['ring_y'][i_branch])):
+                    # if (-1 <= int(ring_data['ring_y'][dup_i + 1]) - int(branch_data['ring_y'][i_branch]) <= 1) and (
+                    #         -1 <= int(ring_data['ring_x'][dup_i + 1]) - int(branch_data['ring_x'][i_branch]) <= 1):
                         print("swap branch data.....")
                         # print(ring_data['ring_y'][dup_i + 1], ring_data['ring_x'][dup_i + 1],
                         #       branch_data['ring_y'][i_branch], branch_data['ring_x'][i_branch])
@@ -822,7 +826,7 @@ if __name__ == '__main__':
                         temp = {}
                         # print(swap_list)
                         for k in swap_list:
-                            print(k, ring_data[k][dup_i])
+                            # print(k, ring_data[k][dup_i])
                             temp[k] = ring_data[k][dup_i]
                             ring_data[k][dup_i] = branch_data[k][i_branch]
                             branch_data[k][i_branch] = temp[k]
@@ -1156,6 +1160,7 @@ if __name__ == '__main__':
                     ax_layer_twin.tick_params(axis="y", labelcolor="red")
             plt.savefig(os.path.realpath(output_path + '/' + raw_file_name + '_layer' + str(x+1) + '_' + timestamp + '.png'))
             plt.close(fig_layer)
+
         print("==============================================NEW IMAGE=================================================")
         try:
             ring_data_image.write_csv(os.path.realpath(output_path+'/'+raw_file_name+'_'+ timestamp + '.csv'))
