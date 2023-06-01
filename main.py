@@ -51,8 +51,8 @@ color_list = plt.rcParams['axes.prop_cycle'].by_key()['color'][1:]
 WALKER_MAX = 253
 X_NORMALIZE = 400
 BK_SUB, SHOW_OVERLAP = True, True
-RING_THICKNESS = 5
-ERODE_THICKNESS = 0
+RING_THICKNESS = 3
+ERODE_THICKNESS = 3
 INPUT_PATH = os.path.realpath(r'./input')
 RDL_AVER_START = 0
 RDL_AVER_END = RING_THICKNESS-1
@@ -65,8 +65,23 @@ B_CHANNEL = 0
 #     PG_START = 0
 #     PG_END = RING_THICKNESS
 
+SETTING_ITEMS = {
+    'X_NORMALIZE': X_NORMALIZE,
+    'BK_SUB': BK_SUB,
+    'SHOW_OVERLAP': SHOW_OVERLAP,
+    'RING_THICKNESS': RING_THICKNESS,
+    'ERODE_THICKNESS': ERODE_THICKNESS,
+    'INPUT_PATH': INPUT_PATH,
+    'RDL_AVER_START': RDL_AVER_START,
+    'RDL_AVER_END': RDL_AVER_END,
+    'SHOW_PLOTS': SHOW_PLOTS,
+    'CHANNELS': CHANNELS,
+    'B_CHANNEL': B_CHANNEL,
+}
+
 if len(sys.argv) > 1:
     PARAMETERS = eval(sys.argv[1])
+
     print(PARAMETERS)
     if PARAMETERS['INPUT_PATH']:
         INPUT_PATH = PARAMETERS['INPUT_PATH']
@@ -100,6 +115,7 @@ if len(sys.argv) > 1:
 
     if PARAMETERS['B_CHANNEL']:
         B_CHANNEL = PARAMETERS['B_CHANNEL']
+
 
 def time_elapsed(func):
     # This function shows the execution time of
@@ -547,6 +563,9 @@ def error_logging(err_impact, e_msg, err_type, err_source):
     return
 
 
+
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     # # change mode to headless for cluster environment
@@ -557,6 +576,16 @@ if __name__ == '__main__':
     # if ij.WindowManager.getIDList() is None:
     #     ij.py.run_macro('newImage("dummy", "8-bit", 1, 1, 1);')
     # plt.figure()
+    f = open(output_path + '/summary.txt', 'w', newline='\n')
+    f.write('version: v0.1.1\n')
+    if len(sys.argv)>1:
+        f.write('user settings from GUI\n')
+        for item in SETTING_ITEMS.items():
+            f.write(item[0] + ': ' + str(PARAMETERS[item[1]]) + '\n')
+    else:
+        f.write('user settings from script\n')
+        for item in SETTING_ITEMS.items():
+            f.write(item[0] + ': ' + str(item[1])+ '\n')
 
     print(INPUT_PATH, ERODE_THICKNESS, RING_THICKNESS, RDL_AVER_START, RDL_AVER_END, BK_SUB, SHOW_OVERLAP, CHANNELS)
     # check first time runner
@@ -581,6 +610,8 @@ if __name__ == '__main__':
     # load images and tables from file_lookup_list
     for item in file_lookup_list.filter(pl.col("type") == 'bmask_table').iter_rows(named=True):
         raw_file_name = item['file'].replace('_table', '')
+        f.write('=====================================================================\n')
+        f.write('file:' + raw_file_name + '\n')
         # lazy load centroids table
         try:
             # print(os.path.realpath(INPUT_PATH + '/' + raw_file_name + "_table.csv"))
@@ -588,6 +619,7 @@ if __name__ == '__main__':
                 .select(ILASTIK_COLS) \
                 .filter(pl.col("Predicted Class") == "LipidDroplets")
             arr_cen = arr_cen.collect()
+            f.write('total voids: ' + str(arr_cen.shape[0]) + '\n')
             # print(arr_cen, arr_cen.shape)
         except Exception as e:
             print(e)
@@ -599,8 +631,11 @@ if __name__ == '__main__':
             map_bmask = Image.open(os.path.realpath(INPUT_PATH + '/' + raw_file_name + "_Object Predictions.tif"))
             arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
             edge_copy = arr_bmask.copy()
+
             arr_cen = gen_outline_bmask(edge_copy)
+            f.write('voids after erosion: ' + str(arr_cen.shape[0]) + '\n')
             if len(arr_cen) == 0:
+                error_logging('high', 'not in exception', 'file corrupted/invalid/missing', raw_file_name)
                 continue
         except Exception as e:
             print(e)
@@ -680,27 +715,31 @@ if __name__ == '__main__':
 
         # subtract background intensity
         if BK_SUB:
-            # droplet_1d_sort = np.sort(base_ch, axis=None)
-            # background_droplet = np.sum(droplet_1d_sort[0:100]) / 100
-            # base_ch -= int(background_droplet)
+            base_1d_sort = np.sort(base_ch, axis=None)
+            bk_base = np.sum(base_1d_sort[0:100]) / 100
+            base_ch -= int(bk_base)
+            f.write('background for ' + CHANNELS[B_CHANNEL] + ': ' + str(bk_base) + '\n')
 
             # contact_1d_sort = np.sort(arr_contact, axis=None)
             # background_contact = np.sum(contact_1d_sort[0:100]) / 100
             # arr_contact -= int(background_contact)
 
-            # for ch in other_ch_ind_list:
-            #     contact_1d_sort = np.sort(other_chs[ch], axis=None)
-            #     background_contact = np.sum(contact_1d_sort[0:100]) / 100
-            #     other_chs[ch] -= int(background_contact)
-
-            bk_base = np.median(base_ch)
-            base_ch -= int(bk_base)
-            print(bk_base)
-
             for ch in other_ch_ind_list:
-                bk_other_ch = np.median(other_chs[ch])
+                other_ch_1d_sort = np.sort(other_chs[ch], axis=None)
+                bk_other_ch = np.sum(other_ch_1d_sort[0:100]) / 100
                 other_chs[ch] -= int(bk_other_ch)
-                print(bk_other_ch)
+                f.write('background for ' + CHANNELS[ch] + ': ' + str(bk_other_ch) + '\n')
+
+            # bk_base = np.median(base_ch)
+            # base_ch -= int(bk_base)
+            # print(bk_base)
+            # f.write('background for ' + CHANNELS[B_CHANNEL] + ': ' + str(bk_base) + '\n')
+
+            # for ch in other_ch_ind_list:
+            #     bk_other_ch = np.median(other_chs[ch])
+            #     other_chs[ch] -= int(bk_other_ch)
+            #     print(bk_other_ch)
+            #     f.write('background for ' + CHANNELS[ch] + ': ' + str(bk_other_ch) + '\n')
 
         plot_y_max_droplet = 0
         plot_y_max_other_chs = 0
@@ -731,7 +770,8 @@ if __name__ == '__main__':
                              'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
                              'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
                              'index': np.zeros((ring_len,), dtype=np.uint16),
-                             'ring_y': np.zeros((ring_len,), dtype=np.uint16), 'ring_x': np.zeros((ring_len,), dtype=np.uint16),
+                             'ring_y': np.zeros((ring_len,), dtype=np.uint16),
+                             'ring_x': np.zeros((ring_len,), dtype=np.uint16),
                              'overlap': np.full((ring_len,), False, dtype=bool),
                              'closed': np.full((ring_len,), False, dtype=bool),
                              base_inten_key: np.zeros((ring_len,), dtype=np.uint16)}
@@ -1163,3 +1203,4 @@ if __name__ == '__main__':
             print(e)
             error_logging('high', e, 'empty table', raw_file_name + ".tif")
     # print(ring_data_project.shape)
+    f.close()
