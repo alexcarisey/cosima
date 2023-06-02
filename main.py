@@ -54,6 +54,7 @@ BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 3
 ERODE_THICKNESS = 3
 INPUT_PATH = os.path.realpath(r'./input')
+RDL_AVER = True
 RDL_AVER_START = 0
 RDL_AVER_END = RING_THICKNESS-1
 SHOW_PLOTS = True
@@ -72,6 +73,7 @@ SETTING_ITEMS = {
     'RING_THICKNESS': RING_THICKNESS,
     'ERODE_THICKNESS': ERODE_THICKNESS,
     'INPUT_PATH': INPUT_PATH,
+    'RDL_AVER': RDL_AVER,
     'RDL_AVER_START': RDL_AVER_START,
     'RDL_AVER_END': RDL_AVER_END,
     'SHOW_PLOTS': SHOW_PLOTS,
@@ -99,6 +101,9 @@ if len(sys.argv) > 1:
     if not PARAMETERS['SHOW_OVERLAP']:
         print(PARAMETERS['SHOW_OVERLAP'])
         SHOW_OVERLAP = PARAMETERS['SHOW_OVERLAP']
+
+    if type(PARAMETERS['RDL_AVER']) is bool:
+        RDL_AVER = PARAMETERS['RDL_AVER']
 
     if type(PARAMETERS['RDL_AVER_START']) is int:
         RDL_AVER_START = PARAMETERS['RDL_AVER_START']-1
@@ -581,7 +586,8 @@ if __name__ == '__main__':
     if len(sys.argv)>1:
         f.write('user settings from GUI\n')
         for item in SETTING_ITEMS.items():
-            f.write(item[0] + ': ' + str(PARAMETERS[item[1]]) + '\n')
+            if item[0] != 'X_NORMALIZE':
+                f.write(item[0] + ': ' + str(PARAMETERS[item[0]]) + '\n')
     else:
         f.write('user settings from script\n')
         for item in SETTING_ITEMS.items():
@@ -680,7 +686,7 @@ if __name__ == '__main__':
         # view raw images and binary mask
         if SHOW_PLOTS:
             fig_input, ax_input = plt.subplots(nrows=1, ncols=1+len(other_ch_ind_list), figsize=(8*(1+len(other_ch_ind_list)), 9), layout='tight')
-            fig_input.suptitle(f'input images: {item["file"]}', fontsize=16)
+            fig_input.suptitle(f'input images: {raw_file_name}', fontsize=16)
 
             ax_input[0].imshow(base_ch)
             ax_input[0].set_title(f'{CHANNELS[B_CHANNEL]} channel')
@@ -1171,10 +1177,18 @@ if __name__ == '__main__':
         c = int(math.ceil(np.sqrt(arr_cen.shape[0])))
         r = int(arr_cen.shape[0] / c + 1)
         for x in range(RING_THICKNESS+1):
+            print(RDL_AVER)
+            if RDL_AVER == 0 and x == RING_THICKNESS:
+                print(RDL_AVER)
+                break
             fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c, sharex=True, sharey=True, figsize=(c*4, r*3))
-            fig_layer.suptitle(f"intensity plot for layer: {x+1}")
+            if x == RING_THICKNESS:
+                fig_layer.suptitle(f"intensity plot for layer: Radial Average")
+            else:
+                fig_layer.suptitle(f"intensity plot for layer: {x+1}")
             fig_layer.subplots_adjust(hspace=0, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
             for i, row in enumerate(arr_cen.iter_rows(named=True)):
+
                 table_row = i // c
                 table_col = i % c
                 ax_layer_twin = ax_layer[table_row, table_col].twinx()
