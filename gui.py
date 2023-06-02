@@ -13,22 +13,27 @@ class App(tk.Tk):
 
         def exit_gui():
             parameter_setting = {"INPUT_PATH": folder_path.get(),
+                                 "ERODE_THICKNESS": erode_thickness.get(),
                                  "RING_THICKNESS": ring_thickness.get(),
-                                 "PG_START": pg_start.get(),
-                                 "PG_END": pg_end.get(),
+                                 "RDL_AVER": rdl_aver.get(),
+                                 "RDL_AVER_START": rdl_aver_start.get() if rdl_aver.get() else 0,
+                                 "RDL_AVER_END": rdl_aver_end.get() if rdl_aver.get() else 0,
                                  "BK_SUB": background_sub.get(),
-                                 "SHOW_OVERLAP": show_overlap.get()
+                                 "SHOW_OVERLAP": show_overlap.get(),
+                                 "SHOW_PLOTS": show_plots.get(),
+                                 "CHANNELS": ch_info,
+                                 "B_CHANNEL": ch_base.get()
                                  }
             print(str(parameter_setting))
 
-            if pg_end.get() > ring_thickness.get():
-                err_msg_lb.configure(text="Wrong setting: projection end layer exceed thickness!")
+            if rdl_aver_end.get() > ring_thickness.get():
+                err_msg_lb.configure(text="Wrong setting: end layer exceed thickness!")
 
-            elif pg_start.get() > ring_thickness.get():
-                err_msg_lb.configure(text="Wrong setting: projection starting layer exceed thickness!")
+            elif rdl_aver_start.get() > ring_thickness.get():
+                err_msg_lb.configure(text="Wrong setting: tarting layer exceed thickness!")
 
-            elif pg_start.get() > pg_end.get():
-                err_msg_lb.configure(text="Wrong setting: projection starting layer smaller than end layer!")
+            elif rdl_aver_start.get() > rdl_aver_end.get():
+                err_msg_lb.configure(text="Wrong setting: starting layer smaller than end layer!")
 
             else:
                 err_msg_lb.configure(text="valid setting, proceed to analysis...")
@@ -41,30 +46,75 @@ class App(tk.Tk):
             folder_path.set(INPUT_PATH)
             print(INPUT_PATH)
 
+        def erode_slider_changed(event):
+            erode_slide_num_lb.configure(text=get_current_value(erode_thickness))
+
         def ring_slider_changed(event):
             # ring_slider.get()
-            # pg_start_max.set(ring_thickness.get())
-            # print(pg_start_max.get())
-            pg_start_slider.configure(to=ring_thickness.get())
-            pg_start_slider.update_idletasks()
-            pg_end_slider.configure(to=ring_thickness.get())
-            pg_end_slider.update_idletasks()
+            # rdl_aver_start_max.set(ring_thickness.get())
+            # print(rdl_aver_start_max.get())
+            # print(int(event))
             ring_slide_num_lb.configure(text=get_current_value(ring_thickness))
+            if rdl_aver.get():
+                rdl_aver_start_slider.configure(to=ring_thickness.get())
+                rdl_aver_start_slider.update_idletasks()
+                rdl_aver_end.set(ring_thickness.get())
+                rdl_aver_end_slider_num_lb.configure(text=get_current_value(rdl_aver_end))
+                rdl_aver_end_slider.configure(to=ring_thickness.get())
+                rdl_aver_end_slider.update_idletasks()
 
-        def pg_start_slider_changed(event):
+        def rdl_aver_start_slider_changed(event):
             # ring_slider.get()
-            pg_end_slider.configure(from_=pg_start.get())
-            pg_end_slider.update_idletasks()
-            pg_start_slider_num_lb.configure(text=get_current_value(pg_start))
+            rdl_aver_end_slider.configure(from_=rdl_aver_start.get())
+            rdl_aver_end_slider.update_idletasks()
+            rdl_aver_start_slider_num_lb.configure(text=get_current_value(rdl_aver_start))
 
-        def pg_end_slider_changed(event):
+        def rdl_aver_end_slider_changed(event):
             # ring_slider.get()
-            pg_end_slider_num_lb.configure(text=get_current_value(pg_end))
+            rdl_aver_end_slider_num_lb.configure(text=get_current_value(rdl_aver_end))
+            rdl_aver_start_slider.configure(to=rdl_aver_end.get())
+            rdl_aver_start_slider.update_idletasks()
 
         def get_current_value(part):
             return part.get()
 
-        self.geometry('450x320')
+        def toggle_rdl_aver():
+            print(rdl_aver.get())
+            if rdl_aver.get():
+                rdl_aver_start_slider.configure(state=tk.ACTIVE)
+                rdl_aver_end_slider.configure(state=tk.ACTIVE)
+            else:
+                rdl_aver_start_slider.configure(state=tk.DISABLED)
+                rdl_aver_end_slider.configure(state=tk.DISABLED)
+
+                rdl_aver_start.set(1)
+                rdl_aver_end.set(1)
+                rdl_aver_start_slider_num_lb.configure(text=rdl_aver_start.get())
+                rdl_aver_end_slider_num_lb.configure(text=rdl_aver_end.get())
+
+        def pick_ch_num(event):
+            if ch_num.get() in ch_info.keys():
+                ch_name.set(ch_info[ch_num.get()])
+            else:
+                ch_name.set('')
+
+        def add_channel():
+            ch_info[ch_num.get()] = ch_name.get()
+            if ch_num.get() == ch_num_list[-1]:
+                ch_num_list.append(ch_num.get()+1)
+                # ch_num.set(ch_num.get()+1)
+                ch_num_opt['menu'].delete(0, 'end')
+                ch_base_opt['menu'].delete(0, 'end')# remove full list
+                # ch_num_opt['menu'].add_command(command=pick_ch_num())
+                for opt in ch_num_list:
+                    ch_num_opt['menu'].add_command(label=opt, command=tk._setit(ch_num, opt, pick_ch_num))
+                    ch_base_opt['menu'].add_command(label=opt, command=tk._setit(ch_base, opt))
+                ch_num.set(ch_num_list[-1])
+                ch_name.set('')
+
+
+
+        self.geometry('450x480')
         self.resizable(0, 0)
         self.title('COSIMA')
 
@@ -76,15 +126,31 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=3)
 
+        ch_num_list = [0]
+        ch_num = tk.IntVar(self, value=ch_num_list[0])
+        # ch_num.set(ch_num_list[0])
+
+        # ch_num_list = list
+        ch_nums = list
+        ch_names = list
+        ch_info = {
+            0: '',
+        }
+
         folder_path = tk.StringVar(self, value=r'./input')
+        erode_thickness = tk.IntVar(self, value=0)
         ring_thickness = tk.IntVar(self, value=1)
-        pg_start = tk.IntVar(self, value=1)
-        pg_start_max = tk.IntVar(self, value=20)
-        pg_end = tk.IntVar(self, value=1)
-        pg_end_max = tk.IntVar(self, value=1)
-        pg_end_min = tk.IntVar(self, value=20)
+        rdl_aver_start = tk.IntVar(self, value=1)
+        rdl_aver_start_max = tk.IntVar(self, value=20)
+        rdl_aver_end = tk.IntVar(self, value=1)
+        rdl_aver_end_max = tk.IntVar(self, value=1)
+        rdl_aver_end_min = tk.IntVar(self, value=20)
         background_sub = tk.BooleanVar(self, value=True)
         show_overlap = tk.BooleanVar(self, value=True)
+        show_plots = tk.BooleanVar(self, value=True)
+        rdl_aver = tk.BooleanVar(self, value=True)
+        ch_base = tk.IntVar(self, value=0)
+        ch_name = tk.StringVar(self)
 
         # heading
         heading = ttk.Label(self, text='Parameters Setup', style='Heading.TLabel')
@@ -100,9 +166,29 @@ class App(tk.Tk):
         path_entry = ttk.Button(self, text="Select", command=get_input_path)
         path_entry.grid(column=2, row=1, sticky=tk.E, **paddings)
 
+        # erode
+        erode_lb = ttk.Label(self, text="Erode:")
+        erode_lb.grid(column=0, row=2, sticky=tk.W, **paddings)
+
+        erode_slider = ttk.Scale(
+            self,
+            from_=0,
+            to=20,
+            orient='horizontal',  # horizontal
+            variable=erode_thickness,
+            command=erode_slider_changed,
+        )
+        erode_slider.grid(column=1, row=2, sticky=tk.EW, **paddings)
+
+        erode_slide_num_lb = ttk.Label(
+            self,
+            text=get_current_value(erode_thickness)
+        )
+        erode_slide_num_lb.grid(column=2, row=2, sticky=tk.W, **paddings)
+
         # thickness
         thickness_lb = ttk.Label(self, text="Thickness:")
-        thickness_lb.grid(column=0, row=2, sticky=tk.W, **paddings)
+        thickness_lb.grid(column=0, row=3, sticky=tk.W, **paddings)
 
         ring_slider = ttk.Scale(
             self,
@@ -112,83 +198,134 @@ class App(tk.Tk):
             variable=ring_thickness,
             command=ring_slider_changed,
         )
-        ring_slider.grid(column=1, row=2, sticky=tk.EW, **paddings)
+        ring_slider.grid(column=1, row=3, sticky=tk.EW, **paddings)
 
         ring_slide_num_lb = ttk.Label(
             self,
             text=get_current_value(ring_thickness)
         )
-        ring_slide_num_lb.grid(column=2, row=2, sticky=tk.W, **paddings)
+        ring_slide_num_lb.grid(column=2, row=3, sticky=tk.W, **paddings)
 
-        # projection setting
-        pg_start_lb = ttk.Label(self, text="Start of Projection:")
-        pg_start_lb.grid(column=0, row=3, sticky=tk.W, **paddings)
+        # radio average setting
+        rdl_aver_lb = ttk.Label(self, text="Radial Average:")
+        rdl_aver_lb.grid(column=0, row=4, columnspan=2, sticky=tk.W, **paddings)
 
-        pg_start_slider = ttk.Scale(
+        rdl_aver_check = ttk.Checkbutton(
+            self,
+            variable=rdl_aver,
+            command=toggle_rdl_aver
+        )
+        rdl_aver_check.grid(column=1, row=4, sticky=tk.E, **paddings)
+
+        rdl_aver_start_lb = ttk.Label(self, text="Starting Layer:")
+        rdl_aver_start_lb.grid(column=0, row=5, sticky=tk.W, **paddings)
+
+        rdl_aver_start_slider = ttk.Scale(
             self,
             from_=1,
-            to=pg_start_max.get(),
+            to=rdl_aver_end.get(),
             orient='horizontal',  # horizontal
-            variable=pg_start,
-            command=pg_start_slider_changed,
+            variable=rdl_aver_start,
+            command=rdl_aver_start_slider_changed,
         )
-        pg_start_slider.grid(column=1, row=3, sticky=tk.EW, **paddings)
+        rdl_aver_start_slider.grid(column=1, row=5, sticky=tk.EW, **paddings)
 
-        pg_start_slider_num_lb = ttk.Label(
+        rdl_aver_start_slider_num_lb = ttk.Label(
             self,
-            text=get_current_value(pg_start)
+            text=get_current_value(rdl_aver_start)
         )
-        pg_start_slider_num_lb.grid(column=2, row=3, sticky=tk.W, **paddings)
+        rdl_aver_start_slider_num_lb.grid(column=2, row=5, sticky=tk.W, **paddings)
 
-        pg_end_lb = ttk.Label(self, text="End of Projection:")
-        pg_end_lb.grid(column=0, row=4, sticky=tk.W, **paddings)
+        rdl_aver_end_lb = ttk.Label(self, text="End Layer:")
+        rdl_aver_end_lb.grid(column=0, row=6, sticky=tk.W, **paddings)
 
-        pg_end_slider = ttk.Scale(
+        rdl_aver_end_slider = ttk.Scale(
             self,
             from_=1,
-            to=20,
+            to=ring_thickness.get(),
             orient='horizontal',  # horizontal
-            variable=pg_end,
-            command=pg_end_slider_changed,
+            variable=rdl_aver_end,
+            command=rdl_aver_end_slider_changed,
         )
-        pg_end_slider.grid(column=1, row=4, sticky=tk.EW, **paddings)
+        rdl_aver_end_slider.grid(column=1, row=6, sticky=tk.EW, **paddings)
 
-        pg_end_slider_num_lb = ttk.Label(
+        rdl_aver_end_slider_num_lb = ttk.Label(
             self,
-            text=get_current_value(pg_end)
+            text=get_current_value(rdl_aver_end)
         )
-        pg_end_slider_num_lb.grid(column=2, row=4, sticky=tk.W, **paddings)
-
+        rdl_aver_end_slider_num_lb.grid(column=2, row=6, sticky=tk.W, **paddings)
 
         # background sub
         bk_sub_lb = ttk.Label(self, text="Background subtraction:")
-        bk_sub_lb.grid(column=0, row=5, columnspan=2, sticky=tk.W, **paddings)
+        bk_sub_lb.grid(column=0, row=7, columnspan=2, sticky=tk.W, **paddings)
 
         bk_sub_check = ttk.Checkbutton(
             self,
             variable=background_sub,
 
         )
-        bk_sub_check.grid(column=1, row=5, sticky=tk.E, **paddings)
+        bk_sub_check.grid(column=1, row=7, sticky=tk.E, **paddings)
 
         # show overlap
         show_overlap_lb = ttk.Label(self, text="Show Overlapped pixel on plots:")
-        show_overlap_lb.grid(column=0, row=6, columnspan=2, sticky=tk.W, **paddings)
+        show_overlap_lb.grid(column=0, row=8, columnspan=2, sticky=tk.W, **paddings)
 
         show_overlap_check = ttk.Checkbutton(
             self,
             variable=show_overlap,
+        )
+        show_overlap_check.grid(column=1, row=8, sticky=tk.E, **paddings)
+
+        # show plots
+        show_plots_lb = ttk.Label(self, text="Show plots:")
+        show_plots_lb.grid(column=0, row=79, columnspan=2, sticky=tk.W, **paddings)
+
+        show_plots_check = ttk.Checkbutton(
+            self,
+            variable=show_plots,
+        )
+        show_plots_check.grid(column=1, row=79, sticky=tk.E, **paddings)
+
+        # Channel number label
+        ch_num_lb = ttk.Label(self, text="Channel:")
+        ch_num_lb.grid(column=0, row=80, columnspan=1, sticky=tk.W, **paddings)
+
+        ch_num_opt = ttk.OptionMenu(
+            self,
+            ch_num,
+            # ch_num_list[0],
+            *ch_num_list,
+            command=pick_ch_num
 
         )
-        show_overlap_check.grid(column=1, row=6, sticky=tk.E, **paddings)
+        ch_num_opt.grid(column=0, row=80, sticky=tk.E, **paddings)
+
+        ch_name_entry = ttk.Entry(self, textvariable=ch_name,)
+        ch_name_entry.grid(column=1, row=80, columnspan=1, sticky=tk.EW, **paddings)
+        add_ch_btn = ttk.Button(self, text="Add", command=add_channel)
+        add_ch_btn.grid(column=2, row=80, sticky=tk.E, **paddings)
+
+        # base select
+        ch_base_lb = ttk.Label(self, text="Base CH:")
+        ch_base_lb.grid(column=0, row=81, columnspan=1, sticky=tk.W, **paddings)
+
+        ch_base_opt = ttk.OptionMenu(
+            self,
+            ch_base,
+            # ch_num_list[0],
+            *ch_num_list,
+
+
+        )
+        ch_base_opt.grid(column=0, row=81, sticky=tk.E, **paddings)
 
         # error message
         err_msg_lb = ttk.Label(self, text="")
-        err_msg_lb.grid(column=0, row=7, columnspan=3, sticky=tk.W, **paddings)
+        err_msg_lb.grid(column=0, row=89, columnspan=3, sticky=tk.W, **paddings)
 
         # run button
         login_button = ttk.Button(self, text="Run", command=exit_gui)
-        login_button.grid(column=2, row=8, sticky=tk.E, **paddings)
+        login_button.grid(column=2, row=99, sticky=tk.E, **paddings)
 
         # configure style
         self.style = ttk.Style(self)
