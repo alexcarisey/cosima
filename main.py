@@ -687,9 +687,12 @@ if __name__ == '__main__':
         if SHOW_PLOTS:
             fig_input, ax_input = plt.subplots(nrows=1, ncols=1+len(other_ch_ind_list), figsize=(8*(1+len(other_ch_ind_list)), 9), layout='tight')
             fig_input.suptitle(f'input images: {raw_file_name}', fontsize=16)
-
-            ax_input[0].imshow(base_ch)
-            ax_input[0].set_title(f'{CHANNELS[B_CHANNEL]} channel')
+            if len(other_ch_ind_list) == 0:
+                ax_input.imshow(base_ch)
+                ax_input.set_title(f'{CHANNELS[B_CHANNEL]} channel')
+            else:
+                ax_input[0].imshow(base_ch)
+                ax_input[0].set_title(f'{CHANNELS[B_CHANNEL]} channel')
             # ax_input[1].imshow(arr_contact)
             for ch_i, ch in enumerate(other_ch_ind_list):
                 # print(ch_i, ch,other_ch_ind_list)
@@ -707,13 +710,22 @@ if __name__ == '__main__':
                                          ha='center')  # horizontal alignment can be left, right or center
             for row_cen in arr_cen.iter_rows(named=True):
                 label = f"{row_cen['object_id']}"
-                ax_input[0].annotate(label,  # this is the text
-                            (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
-                            color='red',
-                            # these are the coordinates to position the label
-                            textcoords="offset points",  # how to position the text
-                            xytext=(0, 0),  # distance from text to points (x,y)
-                            ha='center')  # horizontal alignment can be left, right or center
+                if len(other_ch_ind_list) == 0:
+                    ax_input.annotate(label,  # this is the text
+                                (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
+                                color='red',
+                                # these are the coordinates to position the label
+                                textcoords="offset points",  # how to position the text
+                                xytext=(0, 0),  # distance from text to points (x,y)
+                                ha='center')  # horizontal alignment can be left, right or center
+                else:
+                    ax_input[0].annotate(label,  # this is the text
+                                (int(round(row_cen['Object Center_0'], 0)), int(round(row_cen['Object Center_1'], 0))),
+                                color='red',
+                                # these are the coordinates to position the label
+                                textcoords="offset points",  # how to position the text
+                                xytext=(0, 0),  # distance from text to points (x,y)
+                                ha='center')  # horizontal alignment can be left, right or center
 
             plt.draw()
 
