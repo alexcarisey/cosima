@@ -96,7 +96,7 @@ fabric.properties
 /workspace.xml
 
 # local only data
-input/
+input*
 output*
 contact/
 droplet/

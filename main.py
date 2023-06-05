@@ -1189,9 +1189,7 @@ if __name__ == '__main__':
         c = int(math.ceil(np.sqrt(arr_cen.shape[0])))
         r = int(arr_cen.shape[0] / c + 1)
         for x in range(RING_THICKNESS+1):
-            print(RDL_AVER)
-            if RDL_AVER == 0 and x == RING_THICKNESS:
-                print(RDL_AVER)
+            if (RDL_AVER == 0 and x == RING_THICKNESS) or (RING_THICKNESS == 1 and x == RING_THICKNESS):
                 break
             fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c, sharex=True, sharey=True, figsize=(c*4, r*3))
             if x == RING_THICKNESS:
