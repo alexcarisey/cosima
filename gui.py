@@ -5,6 +5,7 @@ import ast
 from tkinter.filedialog import askdirectory
 import tkinter as tk
 from tkinter import ttk
+import re
 
 
 class App(tk.Tk):
@@ -99,18 +100,45 @@ class App(tk.Tk):
                 ch_name.set('')
 
         def add_channel():
-            ch_info[ch_num.get()] = ch_name.get()
-            if ch_num.get() == ch_num_list[-1]:
-                ch_num_list.append(ch_num.get()+1)
-                # ch_num.set(ch_num.get()+1)
-                ch_num_opt['menu'].delete(0, 'end')
-                ch_base_opt['menu'].delete(0, 'end')# remove full list
-                # ch_num_opt['menu'].add_command(command=pick_ch_num())
-                for opt in ch_num_list:
-                    ch_num_opt['menu'].add_command(label=opt, command=tk._setit(ch_num, opt, pick_ch_num))
-                    ch_base_opt['menu'].add_command(label=opt, command=tk._setit(ch_base, opt))
-                ch_num.set(ch_num_list[-1])
-                ch_name.set('')
+            if re.fullmatch('[a-zA-Z0-9]+', ch_name.get()) is None:
+                ch_name.set('only digits/letters')
+            else:
+                ch_info[ch_num.get()] = ch_name.get()
+                if ch_num.get() == ch_num_list[-1]:
+                    ch_num_list.append(ch_num.get()+1)
+                    # ch_num.set(ch_num.get()+1)
+                    ch_num_opt['menu'].delete(0, 'end')
+                    ch_base_opt['menu'].delete(0, 'end')# remove full list
+                    # ch_num_opt['menu'].add_command(command=pick_ch_num())
+                    for opt in ch_num_list:
+                        ch_num_opt['menu'].add_command(label=opt, command=tk._setit(ch_num, opt, pick_ch_num))
+                        ch_base_opt['menu'].add_command(label=opt, command=tk._setit(ch_base, opt))
+                    ch_num.set(ch_num_list[-1])
+                    ch_name.set('')
+
+        # def show_message(error='', color='black'):
+        #     label_error['text'] = error
+        #     email_entry['foreground'] = color
+
+        def validate(value):
+            """
+            Validat the email entry
+            :param value:
+            :return:
+            """
+            if re.fullmatch('[a-zA-Z0-9]+', value) is None:
+                return False
+
+            # show_message()
+            return True
+
+        def on_invalid():
+            """
+            Show the error message if the data is not valid
+            :return:
+            """
+            ch_name.set('Only digits/letters')
+            # part.show_message('Please enter a valid email', 'red')
 
 
 
@@ -301,6 +329,9 @@ class App(tk.Tk):
         ch_num_opt.grid(column=0, row=80, sticky=tk.E, **paddings)
 
         ch_name_entry = ttk.Entry(self, textvariable=ch_name,)
+        vcmd = (ch_name_entry.register(validate), '%P')
+        ivcmd = (ch_name_entry.register(on_invalid),)
+        ch_name_entry.config(validate='focusout', validatecommand=vcmd, invalidcommand=ivcmd)
         ch_name_entry.grid(column=1, row=80, columnspan=1, sticky=tk.EW, **paddings)
         add_ch_btn = ttk.Button(self, text="Add", command=add_channel)
         add_ch_btn.grid(column=2, row=80, sticky=tk.E, **paddings)
