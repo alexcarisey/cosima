@@ -53,13 +53,13 @@ X_NORMALIZE = 400
 BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 3
 ERODE_THICKNESS = 3
-INPUT_PATH = os.path.realpath(r'./input')
+INPUT_PATH = os.path.realpath(r'./input_wrong')
 RDL_AVER = True
 RDL_AVER_START = 0
 RDL_AVER_END = RING_THICKNESS-1
 SHOW_PLOTS = True
-CHANNELS = {0:'halo', 1:'fabccon'}
-B_CHANNEL = 0
+CHANNELS = {1:'halo', 2:'fabccon'}
+B_CHANNEL = 1
 # if len(sys.argv) == 1:
 #     RING_THICKNESS = 5
 #     INPUT_PATH = os.path.realpath(r'./input')
@@ -156,8 +156,8 @@ def file_ext_check(input_path, valid_format):
                 if re.search("_Object Predictions", name):
                     type_list[i_file] = 'bmask'
                 else:
-                    channel_name = re.findall(" C=[a-zA-Z0-9]+", name)
-                    channel = channel_name[0].replace(' C=', '')
+                    channel_name = re.findall("_Ch[a-zA-Z0-9]+", name)
+                    channel = channel_name[0].replace('_Ch', '')
                     if len(channel_name) == 1:
                         type_list[i_file] = channel
                         channel = int(channel)

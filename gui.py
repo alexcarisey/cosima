@@ -154,7 +154,7 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=3)
 
-        ch_num_list = [0]
+        ch_num_list = [1]
         ch_num = tk.IntVar(self, value=ch_num_list[0])
         # ch_num.set(ch_num_list[0])
 
@@ -162,7 +162,7 @@ class App(tk.Tk):
         ch_nums = list
         ch_names = list
         ch_info = {
-            0: '',
+            1: '',
         }
 
         folder_path = tk.StringVar(self, value=r'./input')
@@ -177,7 +177,7 @@ class App(tk.Tk):
         show_overlap = tk.BooleanVar(self, value=True)
         show_plots = tk.BooleanVar(self, value=True)
         rdl_aver = tk.BooleanVar(self, value=True)
-        ch_base = tk.IntVar(self, value=0)
+        ch_base = tk.IntVar(self, value=1)
         ch_name = tk.StringVar(self)
 
         # heading
