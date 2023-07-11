@@ -15,6 +15,8 @@ import mpl_interactions.ipyplot as iplt
 from PIL import Image
 import shutil
 from scipy import interpolate
+from skimage.filters import threshold_mean
+from skimage.filters import try_all_threshold
 
 
 pl.Config.set_fmt_str_lengths(1000)
@@ -29,7 +31,7 @@ ILASTIK_COLS = ['object_id',
                 'Probability of LipidDroplets',
                 'Object Center_0',
                 'Object Center_1',
-                'Object Area',
+                # 'Object Area',
                 'Radii of the object_0',
                 'Radii of the object_1',
                 'Size in pixels',
@@ -51,8 +53,8 @@ color_list = plt.rcParams['axes.prop_cycle'].by_key()['color'][1:]
 WALKER_MAX = 253
 X_NORMALIZE = 400
 BK_SUB, SHOW_OVERLAP = True, True
-RING_THICKNESS = 3
-ERODE_THICKNESS = 3
+RING_THICKNESS = 5
+ERODE_THICKNESS = 1
 INPUT_PATH = os.path.realpath(r'./input_wrong')
 RDL_AVER = True
 RDL_AVER_START = 0
@@ -156,7 +158,7 @@ def file_ext_check(input_path, valid_format):
                 if re.search("_Object Predictions", name):
                     type_list[i_file] = 'bmask'
                 else:
-                    channel_name = re.findall("_Ch[a-zA-Z0-9]+", name)
+                    channel_name = re.findall("_Ch[0-9]+", name)
                     channel = channel_name[0].replace('_Ch', '')
                     if len(channel_name) == 1:
                         type_list[i_file] = channel
@@ -520,6 +522,7 @@ def record_ring(y_edge, x_edge, ring_output, branch_output, base_inten, other_in
             ring_output['overlap'][count] = overlap_flag
             for ch_key in other_ch_ind_list:
                 ring_output[CHANNELS[ch_key] + '_inten'][count]  = other_inten[ch_key][y_edge,x_edge]
+                # print(other_inten[ch_key][y_edge,x_edge], ring_output[base_inten_key][count])
             # if overlap_flag is True:
             #     ring_output['overlap'][count] = True
     # return close_flag
@@ -650,6 +653,7 @@ if __name__ == '__main__':
 
         # load droplet intensity
         try:
+            print(raw_file_name)
             map_droplet = Image.open(os.path.realpath(INPUT_PATH + '/' + raw_file_name + ".tif"))
             base_ch = np.array(map_droplet)
         except Exception as e:
@@ -674,13 +678,69 @@ if __name__ == '__main__':
                 try:
                     # print(os.path.realpath(contact_path + '/' + raw_file_name + ".tif"))
                     map_inten = Image.open(
-                        os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace(" C=0_", " C=" + str(ch) + "_") + ".tif"))
+                        os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace("_Ch"+str(B_CHANNEL), "_Ch" + str(ch)) + ".tif"))
                     other_chs[ch] = np.array(map_inten)
                     arr_contact = np.array(map_inten)
                 except Exception as e:
                     print(e)
-                    error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name.replace(" C=0_", " C="+ str(ch) + "_") + ".tif")
+                    error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name.replace("_Ch"+str(B_CHANNEL), "_Ch"+ str(ch)) + ".tif")
                     continue
+
+        # subtract background intensity
+        if BK_SUB:
+            # base_1d_sort = np.sort(base_ch, axis=None)
+            # bk_base = np.sum(base_1d_sort[0:100]) / 100
+            # base_ch -= int
+            fig_bk, ax_bk = plt.subplots(nrows=1, ncols=3, layout="tight")
+            fig_bk.suptitle(f'channel: {CHANNELS[B_CHANNEL]}', fontsize=16)
+
+            thresh = threshold_mean(base_ch)
+            threshold_binary = base_ch > thresh
+            base_bk = base_ch.astype('float')
+            base_bk[base_bk==0] = np.NAN
+            bk_value = np.average(base_bk[threshold_binary==0])
+            # bk_value = np.average(base_ch[base_ch != 0 & threshold_binary == 0])
+            print(bk_value)
+            base_bk -= bk_value
+            ax_bk[0].set_title('original')
+            ax_bk[0].imshow(base_ch)
+            ax_bk[1].set_title('subtracted')
+            ax_bk[1].imshow(base_bk)
+            ax_bk[2].set_title('threshold')
+            ax_bk[2].imshow(threshold_binary)
+            plt.show()
+            f.write('background for ' + CHANNELS[B_CHANNEL] + ': ' + str(bk_value) + '\n')
+            # fig, ax = try_all_threshold(base_ch, figsize=(10, 8), verbose=False)
+            # plt.show()
+
+            # f.write('background for ' + CHANNELS[B_CHANNEL] + ': ' + str(bk_base) + '\n')
+
+            # contact_1d_sort = np.sort(arr_contact, axis=None)
+            # background_contact = np.sum(contact_1d_sort[0:100]) / 100
+            # arr_contact -= int(background_contact)
+
+            for ch in other_ch_ind_list:
+                # other_ch_1d_sort = np.sort(other_chs[ch], axis=None)
+                # bk_other_ch = np.sum(other_ch_1d_sort[0:100]) / 100
+                # other_chs[ch] -= int(bk_other_ch)
+                # f.write('background for ' + CHANNELS[ch] + ': ' + str(bk_other_ch) + '\n')
+
+                other_ch_bk = other_chs[ch].astype('float')
+                thresh = threshold_mean(other_ch_bk)
+                threshold_binary = other_ch_bk > thresh
+                other_ch_bk[other_ch_bk==0] = np.NAN
+                bk_value_other = np.average(other_ch_bk[threshold_binary == 0])
+                print(bk_value_other)
+                fig_bk, ax_bk = plt.subplots(nrows=1, ncols=3, layout="tight")
+                fig_bk.suptitle(f'channel: {CHANNELS[ch]}', fontsize=16)
+                ax_bk[0].set_title('original')
+                ax_bk[0].imshow(base_ch)
+                ax_bk[1].set_title('subtracted')
+                ax_bk[1].imshow(base_bk)
+                ax_bk[2].set_title('threshold')
+                ax_bk[2].imshow(threshold_binary)
+                plt.show()
+                f.write('background for ' + CHANNELS[ch] + ': ' + str(bk_value_other) + '\n')
 
         # print(other_chs.keys())
         # view raw images and binary mask
@@ -731,22 +791,27 @@ if __name__ == '__main__':
 
         t = 0
 
-        # subtract background intensity
-        if BK_SUB:
-            base_1d_sort = np.sort(base_ch, axis=None)
-            bk_base = np.sum(base_1d_sort[0:100]) / 100
-            base_ch -= int(bk_base)
-            f.write('background for ' + CHANNELS[B_CHANNEL] + ': ' + str(bk_base) + '\n')
-
-            # contact_1d_sort = np.sort(arr_contact, axis=None)
-            # background_contact = np.sum(contact_1d_sort[0:100]) / 100
-            # arr_contact -= int(background_contact)
-
-            for ch in other_ch_ind_list:
-                other_ch_1d_sort = np.sort(other_chs[ch], axis=None)
-                bk_other_ch = np.sum(other_ch_1d_sort[0:100]) / 100
-                other_chs[ch] -= int(bk_other_ch)
-                f.write('background for ' + CHANNELS[ch] + ': ' + str(bk_other_ch) + '\n')
+        # # subtract background intensity
+        # if BK_SUB:
+        #     # base_1d_sort = np.sort(base_ch, axis=None)
+        #     # bk_base = np.sum(base_1d_sort[0:100]) / 100
+        #     # base_ch -= int(bk_base)
+        #     thresh = threshold_minimum(base_ch)
+        #     threshold_binary = base_ch > thresh
+        #     plt.imshow(threshold_binary)
+        #     plt.show()
+        #
+        #     # f.write('background for ' + CHANNELS[B_CHANNEL] + ': ' + str(bk_base) + '\n')
+        #
+        #     # contact_1d_sort = np.sort(arr_contact, axis=None)
+        #     # background_contact = np.sum(contact_1d_sort[0:100]) / 100
+        #     # arr_contact -= int(background_contact)
+        #
+        #     for ch in other_ch_ind_list:
+        #         other_ch_1d_sort = np.sort(other_chs[ch], axis=None)
+        #         bk_other_ch = np.sum(other_ch_1d_sort[0:100]) / 100
+        #         other_chs[ch] -= int(bk_other_ch)
+        #         f.write('background for ' + CHANNELS[ch] + ': ' + str(bk_other_ch) + '\n')
 
             # bk_base = np.median(base_ch)
             # base_ch -= int(bk_base)
