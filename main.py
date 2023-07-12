@@ -55,7 +55,7 @@ X_NORMALIZE = 400
 BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 5
 ERODE_THICKNESS = 1
-INPUT_PATH = os.path.realpath(r'./input_wrong')
+INPUT_PATH = os.path.realpath(r'./input')
 RDL_AVER = True
 RDL_AVER_START = 0
 RDL_AVER_END = RING_THICKNESS-1
@@ -559,14 +559,19 @@ def plot_layer(l=0):
 
 def error_logging(err_impact, e_msg, err_type, err_source):
     print("updating error log....")
-    try:
-        err_log['impact'].append(err_impact)
-        err_log['e_msg'].append(e_msg)
-        err_log['type'].append(err_type)
-        err_log['source'].append(err_source)
-        pl.DataFrame(err_log).write_csv(output_path + "/err_log.csv")
-    except Exception as e:
-        print(e)
+    # try:
+    #     err_log['impact'].append(err_impact)
+    #     err_log['e_msg'].append(e_msg)
+    #     err_log['type'].append(err_type)
+    #     err_log['source'].append(err_source)
+    #     pl.DataFrame(err_log).write_csv(output_path + "/err_log.csv")
+    # except Exception as e:
+    #     print(e)
+    err_log['impact'].append(err_impact)
+    err_log['e_msg'].append(e_msg)
+    err_log['type'].append(err_type)
+    err_log['source'].append(err_source)
+    pl.DataFrame(err_log).write_csv(output_path + "/err_log.csv")
     print("update complete")
     return
 
@@ -640,6 +645,9 @@ if __name__ == '__main__':
             map_bmask = Image.open(os.path.realpath(INPUT_PATH + '/' + raw_file_name + "_Object Predictions.tif"))
             arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
             edge_copy = arr_bmask.copy()
+            edge_copy[edge_copy == 2] = 0
+            plt.imshow(edge_copy)
+            plt.show()
 
             arr_cen = gen_outline_bmask(edge_copy)
             f.write('voids after erosion: ' + str(arr_cen.shape[0]) + '\n')
@@ -701,11 +709,11 @@ if __name__ == '__main__':
             bk_value = np.average(base_bk[threshold_binary==0])
             # bk_value = np.average(base_ch[base_ch != 0 & threshold_binary == 0])
             print(bk_value)
-            base_bk -= bk_value
+            base_ch -= int(bk_value)
             ax_bk[0].set_title('original')
-            ax_bk[0].imshow(base_ch)
+            ax_bk[0].imshow(base_bk)
             ax_bk[1].set_title('subtracted')
-            ax_bk[1].imshow(base_bk)
+            ax_bk[1].imshow(base_ch)
             ax_bk[2].set_title('threshold')
             ax_bk[2].imshow(threshold_binary)
             plt.show()
@@ -730,13 +738,14 @@ if __name__ == '__main__':
                 threshold_binary = other_ch_bk > thresh
                 other_ch_bk[other_ch_bk==0] = np.NAN
                 bk_value_other = np.average(other_ch_bk[threshold_binary == 0])
+                other_chs[ch] -= int(bk_value_other)
                 print(bk_value_other)
                 fig_bk, ax_bk = plt.subplots(nrows=1, ncols=3, layout="tight")
                 fig_bk.suptitle(f'channel: {CHANNELS[ch]}', fontsize=16)
                 ax_bk[0].set_title('original')
-                ax_bk[0].imshow(base_ch)
+                ax_bk[0].imshow(other_ch_bk)
                 ax_bk[1].set_title('subtracted')
-                ax_bk[1].imshow(base_bk)
+                ax_bk[1].imshow(other_chs[ch])
                 ax_bk[2].set_title('threshold')
                 ax_bk[2].imshow(threshold_binary)
                 plt.show()
@@ -890,10 +899,20 @@ if __name__ == '__main__':
                 if t == 0:
                     y_Start = cen_y
                 else:
+
                     start_last_layer = ring_data_image.filter(
                         (pl.col("object_id") == row['object_id']) & (pl.col("layer") == t) & (pl.col("index") == 0))
+                    # print(start_last_layer.shape)
                     # print(start_last_layer)
-                    y_Start = start_last_layer['ring_y'][0]
+                    try:
+                        y_Start = start_last_layer['ring_y'][0]
+                    except Exception as e:
+                        print(e)
+                        error_logging('high', e, 'problematic void',
+                                      raw_file_name + "_layer" + str(t) + "_id" + str(row['object_id']))
+                        continue
+                    # finally:
+                    #     continue
 
                 # removing inner casting
                 if t == 1:
@@ -909,6 +928,8 @@ if __name__ == '__main__':
                         # print(edge_copy[y_Start, cen_x], edge, y_Start, cen_x)
                 except Exception as e:
                     print(e)
+                    arr_cen = arr_cen.filter(
+                        (pl.col("object_id") != row['object_id']))
                     error_logging('high', e, 'fail to locate edge', raw_file_name + "_layer" + str(t) + "_id" + str(row['object_id']))
                     continue
 
@@ -920,11 +941,22 @@ if __name__ == '__main__':
                                branch_data, 0,
                                closed)  # y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, count, last_dir= None
                 except Exception as e:
-                    error_logging('medium', e, 'pre-allocated array size too small',
+                    # print("_layer" + str(t) + "_id" + str(row['object_id']))
+                    # print(ring_data_image)
+                    arr_cen = arr_cen.filter(
+                        (pl.col("object_id") != row['object_id']))
+                    error_logging('medium', e, 'pre-allocated array size too small or the void is weird',
                                   raw_file_name + "_layer" + str(t) + "_id" + str(row['object_id']))
                     continue
+                # finally:
+
+                    # ring_data = ring_data.filter(
+                    #     (pl.col("object_id") != row['object_id']) )
+                    # continue
 
                 # patch overlapped spots
+
+                # print("patching collision...")
                 b4_patch = edge_copy.copy()
                 for pix in overlap_xy:
                     edge_copy[pix[0], pix[1]] = 254
@@ -1125,6 +1157,7 @@ if __name__ == '__main__':
                             plot_data[i][-1][k] = np.add(plot_data[i][-1][k],
                                                                       np.array(plot_data[i][x][k]))
                     # print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
+                    #calculate radial average at end layer
                     if x == RDL_AVER_END:
                         normalized_data_img[base_inten_key + '_sum'] = copy.deepcopy(plot_data[i][-1][base_inten_key])
                         plot_data[i][-1][base_inten_key] /= (RDL_AVER_END - RDL_AVER_START + 1)
