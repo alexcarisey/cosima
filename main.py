@@ -266,6 +266,26 @@ def dump_info(image):
 #         return cir
 
 
+def clear_border_vicinity(centroid_table, clear_size, bmap_size):
+    table_copy = copy.deepcopy(centroid_table)
+    print(bmap_size) # (y length, x length)
+    y_max = bmap_size[0]
+    x_max = bmap_size[1]
+    for void_i, void in enumerate(centroid_table.iter_rows(named=True)):
+        void_x = int(round(void['Object Center_0'], 0))
+        void_y = int(round(void['Object Center_1'], 0))
+        void_x_min = void['Bounding Box Minimum_0']
+        void_y_min = void['Bounding Box Minimum_1']
+        void_x_max = void['Bounding Box Maximum_0']
+        void_y_max = void['Bounding Box Maximum_1']
+        if void_x_min - clear_size < 0 or\
+                void_x_max + clear_size > x_max or \
+                void_y_min - clear_size  < 0 or \
+                void_y_max + clear_size + 2 > y_max:
+            table_copy = table_copy.filter(pl.col("object_id") != void['object_id'])
+    return table_copy
+
+
 def erode_outline(y,x,bmap, erode):
     # print(erode)
     if bmap[y, x] == erode:
@@ -280,6 +300,7 @@ def erode_outline(y,x,bmap, erode):
 def gen_outline(y, x, bmap, void_i):
     if bmap[y, x] == 1:
         bmap[y, x] = 2
+
         action_on_neighbors(y, x, True, gen_outline, bmap, void_i)
 
     if bmap[y, x] == 0:
@@ -294,11 +315,19 @@ def gen_outline_bmask(bmask):
     for void_i, void in enumerate(arr_cen.iter_rows(named=True)):
         void_x = int(round(void['Object Center_0'], 0))
         void_y = int(round(void['Object Center_1'], 0))
+        print(void_x,void_y,void['object_id'])
         if ERODE_THICKNESS > 0:
             erode_val = int
+            # print("eroding...")
             for e_val in range(ERODE_THICKNESS):
                 # print(void_y,void_x,e_val+1)
-                erode_outline(void_y, void_x, bmask, e_val+1)
+                try:
+                    erode_outline(void_y, void_x, bmask, e_val+1)
+                except IndexError as e:
+                    error_logging('low', 'not in exception', 'void erased by erosion',
+                                  raw_file_name + "_id" + str(void['object_id']))
+                    arr_cen_copy = arr_cen_copy.filter(pl.col('object_id') != void['object_id'])
+                    break
                 # plt.imshow(bmask)
                 # plt.show()
                 bmask[bmask == ERODE_THICKNESS+2] = 0
@@ -312,8 +341,16 @@ def gen_outline_bmask(bmask):
             bmask[bmask == (e_val + 2)] = 1
 
         if bmask[void_y, void_x] != 0:
-            void_edge.append(255 + void_i*2)
-            gen_outline(void_y, void_x, bmask, void_i)
+            try:
+                gen_outline(void_y, void_x, bmask, void_i)
+            except IndexError as e:
+                print(e)
+                # print("check")
+                error_logging('low', str(e), 'might reach border',
+                              raw_file_name + "_id" + str(void['object_id']))
+                arr_cen_copy = arr_cen_copy.filter(pl.col("object_id") != void['object_id'])
+                continue
+            void_edge.append(255 + void_i * 2)
 
     arr_cen_copy = arr_cen_copy.with_columns(pl.Series(name="init_edge", values=void_edge))
     # print(arr_cen_copy)
@@ -633,11 +670,12 @@ if __name__ == '__main__':
                 .select(ILASTIK_COLS) \
                 .filter(pl.col("Predicted Class") == "LipidDroplets")
             arr_cen = arr_cen.collect()
+
             f.write('total voids: ' + str(arr_cen.shape[0]) + '\n')
             # print(arr_cen, arr_cen.shape)
         except Exception as e:
             print(e)
-            error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name + "_table.csv")
+            error_logging('high', str(e), 'file corrupted/invalid/missing', raw_file_name + "_table.csv")
             continue
 
         # form outline from bmask
@@ -646,17 +684,22 @@ if __name__ == '__main__':
             arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
             edge_copy = arr_bmask.copy()
             edge_copy[edge_copy == 2] = 0
+            arr_cen = clear_border_vicinity(arr_cen, RING_THICKNESS+2, edge_copy.shape)
             plt.imshow(edge_copy)
             plt.show()
 
             arr_cen = gen_outline_bmask(edge_copy)
             f.write('voids after erosion: ' + str(arr_cen.shape[0]) + '\n')
             if len(arr_cen) == 0:
+                plt.imshow(edge_copy)
+                plt.show()
                 error_logging('high', 'not in exception', 'file corrupted/invalid/missing', raw_file_name)
                 continue
         except Exception as e:
             print(e)
-            error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name + "_Object Predictions.tif")
+            plt.imshow(edge_copy)
+            plt.show()
+            error_logging('high', str(e), 'file corrupted/invalid/missing', raw_file_name + "_Object Predictions.tif")
             continue
 
         # load droplet intensity
@@ -664,9 +707,10 @@ if __name__ == '__main__':
             print(raw_file_name)
             map_droplet = Image.open(os.path.realpath(INPUT_PATH + '/' + raw_file_name + ".tif"))
             base_ch = np.array(map_droplet)
+            base_raw = base_ch.copy()
         except Exception as e:
             print(e)
-            error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name + ".tif")
+            error_logging('high', str(e), 'file corrupted/invalid/missing', raw_file_name + ".tif")
             continue
 
         # # load contact intensity
@@ -691,10 +735,13 @@ if __name__ == '__main__':
                     arr_contact = np.array(map_inten)
                 except Exception as e:
                     print(e)
-                    error_logging('high', e, 'file corrupted/invalid/missing', raw_file_name.replace("_Ch"+str(B_CHANNEL), "_Ch"+ str(ch)) + ".tif")
+                    error_logging('high', str(e), 'file corrupted/invalid/missing', raw_file_name.replace("_Ch"+str(B_CHANNEL), "_Ch"+ str(ch)) + ".tif")
                     continue
+        other_chs_raw = copy.deepcopy(other_chs)
 
         # subtract background intensity
+        bk_value = 0
+        bk_value_other = [None for _ in range(len(other_chs))]
         if BK_SUB:
             # base_1d_sort = np.sort(base_ch, axis=None)
             # bk_base = np.sum(base_1d_sort[0:100]) / 100
@@ -709,6 +756,7 @@ if __name__ == '__main__':
             bk_value = np.average(base_bk[threshold_binary==0])
             # bk_value = np.average(base_ch[base_ch != 0 & threshold_binary == 0])
             print(bk_value)
+
             base_ch -= int(bk_value)
             ax_bk[0].set_title('original')
             ax_bk[0].imshow(base_bk)
@@ -727,7 +775,7 @@ if __name__ == '__main__':
             # background_contact = np.sum(contact_1d_sort[0:100]) / 100
             # arr_contact -= int(background_contact)
 
-            for ch in other_ch_ind_list:
+            for ch_i, ch in enumerate(other_ch_ind_list):
                 # other_ch_1d_sort = np.sort(other_chs[ch], axis=None)
                 # bk_other_ch = np.sum(other_ch_1d_sort[0:100]) / 100
                 # other_chs[ch] -= int(bk_other_ch)
@@ -737,9 +785,11 @@ if __name__ == '__main__':
                 thresh = threshold_mean(other_ch_bk)
                 threshold_binary = other_ch_bk > thresh
                 other_ch_bk[other_ch_bk==0] = np.NAN
-                bk_value_other = np.average(other_ch_bk[threshold_binary == 0])
-                other_chs[ch] -= int(bk_value_other)
-                print(bk_value_other)
+                # bk_value_other = np.average(other_ch_bk[threshold_binary == 0])
+                bk_value_other[ch_i] = np.average(other_ch_bk[threshold_binary == 0])
+                other_chs[ch] -= int(bk_value_other[ch_i])
+                print(bk_value_other[ch_i])
+
                 fig_bk, ax_bk = plt.subplots(nrows=1, ncols=3, layout="tight")
                 fig_bk.suptitle(f'channel: {CHANNELS[ch]}', fontsize=16)
                 ax_bk[0].set_title('original')
@@ -757,16 +807,16 @@ if __name__ == '__main__':
             fig_input, ax_input = plt.subplots(nrows=1, ncols=1+len(other_ch_ind_list), figsize=(8*(1+len(other_ch_ind_list)), 9), layout='tight')
             fig_input.suptitle(f'input images: {raw_file_name}', fontsize=16)
             if len(other_ch_ind_list) == 0:
-                ax_input.imshow(base_ch)
-                ax_input.set_title(f'{CHANNELS[B_CHANNEL]} channel')
+                ax_input.imshow(base_raw)
+                ax_input.set_title(f'{CHANNELS[B_CHANNEL]} channel, bk: {bk_value}')
             else:
-                ax_input[0].imshow(base_ch)
-                ax_input[0].set_title(f'{CHANNELS[B_CHANNEL]} channel')
+                ax_input[0].imshow(base_raw)
+                ax_input[0].set_title(f'{CHANNELS[B_CHANNEL]} channel, bk: {bk_value}')
             # ax_input[1].imshow(arr_contact)
             for ch_i, ch in enumerate(other_ch_ind_list):
                 # print(ch_i, ch,other_ch_ind_list)
-                ax_input[ch_i+1].imshow(other_chs[ch])
-                ax_input[ch_i+1].set_title(f'{CHANNELS[ch]} channel')
+                ax_input[ch_i+1].imshow(other_chs_raw[ch])
+                ax_input[ch_i+1].set_title(f'{CHANNELS[ch]} channel, bk: {bk_value_other[ch_i]}')
                 for row_cen in arr_cen.iter_rows(named=True):
                     label = f"{row_cen['object_id']}"
                     ax_input[ch_i+1].annotate(label,  # this is the text
@@ -908,7 +958,7 @@ if __name__ == '__main__':
                         y_Start = start_last_layer['ring_y'][0]
                     except Exception as e:
                         print(e)
-                        error_logging('high', e, 'problematic void',
+                        error_logging('high', str(e), 'problematic void',
                                       raw_file_name + "_layer" + str(t) + "_id" + str(row['object_id']))
                         continue
                     # finally:
@@ -930,7 +980,7 @@ if __name__ == '__main__':
                     print(e)
                     arr_cen = arr_cen.filter(
                         (pl.col("object_id") != row['object_id']))
-                    error_logging('high', e, 'fail to locate edge', raw_file_name + "_layer" + str(t) + "_id" + str(row['object_id']))
+                    error_logging('high', str(e), 'fail to locate edge', raw_file_name + "_layer" + str(t) + "_id" + str(row['object_id']))
                     continue
 
                 # print(type(ring_data['layer']))
@@ -940,12 +990,12 @@ if __name__ == '__main__':
                     edge_recur(y_Start, cen_x, edge_copy, base_ch, other_chs, edge, cast, cen_y, cen_x, ring_data,
                                branch_data, 0,
                                closed)  # y_edge, x_edge, b_mask, ring_map, contact_map, edge_num, cast_num, yc, xc, ring_output, count, last_dir= None
-                except Exception as e:
+                except IndexError as e:
                     # print("_layer" + str(t) + "_id" + str(row['object_id']))
                     # print(ring_data_image)
                     arr_cen = arr_cen.filter(
                         (pl.col("object_id") != row['object_id']))
-                    error_logging('medium', e, 'pre-allocated array size too small or the void is weird',
+                    error_logging('medium', str(e), 'pre-allocated array size too small or the void is weird',
                                   raw_file_name + "_layer" + str(t) + "_id" + str(row['object_id']))
                     continue
                 # finally:
@@ -1053,7 +1103,7 @@ if __name__ == '__main__':
                 branch_data_project.write_csv(os.path.realpath(output_path + '/branch_' + timestamp + '.csv'))
             except Exception as e:
                 print(e)
-                error_logging('high', e, 'empty datatable due to excessive erosion', raw_file_name + ".tif")
+                error_logging('high', str(e), 'empty datatable due to excessive erosion', raw_file_name + ".tif")
 
             if SHOW_PLOTS:
                 map_layer[t] = edge_copy
@@ -1328,6 +1378,6 @@ if __name__ == '__main__':
             ring_data_image.write_csv(os.path.realpath(output_path+'/'+raw_file_name+'_'+ timestamp + '.csv'))
         except Exception as e:
             print(e)
-            error_logging('high', e, 'empty table', raw_file_name + ".tif")
+            error_logging('high', str(e), 'empty table', raw_file_name + ".tif")
     # print(ring_data_project.shape)
     f.close()
