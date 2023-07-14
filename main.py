@@ -268,7 +268,7 @@ def dump_info(image):
 
 def clear_border_vicinity(centroid_table, clear_size, bmap_size):
     table_copy = copy.deepcopy(centroid_table)
-    print(bmap_size) # (y length, x length)
+    # print(bmap_size) # (y length, x length)
     y_max = bmap_size[0]
     x_max = bmap_size[1]
     for void_i, void in enumerate(centroid_table.iter_rows(named=True)):
@@ -315,7 +315,7 @@ def gen_outline_bmask(bmask):
     for void_i, void in enumerate(arr_cen.iter_rows(named=True)):
         void_x = int(round(void['Object Center_0'], 0))
         void_y = int(round(void['Object Center_1'], 0))
-        print(void_x,void_y,void['object_id'])
+        # print(void_x,void_y,void['object_id'])
         if ERODE_THICKNESS > 0:
             erode_val = int
             # print("eroding...")
@@ -1169,7 +1169,7 @@ if __name__ == '__main__':
             other_chs_inter = {}
             normalized_data_img = {}
             normalized_data_img[base_inten_key + '_sum'] = np.full((X_NORMALIZE,), np.nan)
-            normalized_data_img[base_inten_key + '_rdd_aver'] = np.full((X_NORMALIZE,), np.nan)
+            normalized_data_img[base_inten_key + '_rdl_aver'] = np.full((X_NORMALIZE,), np.nan)
             for k in other_ch_key_list:
                 normalized_data_img[k + '_sum'] = np.full((X_NORMALIZE,), np.nan)
                 normalized_data_img[k + '_rdl_aver'] = np.full((X_NORMALIZE,), np.nan)
@@ -1211,7 +1211,7 @@ if __name__ == '__main__':
                     if x == RDL_AVER_END:
                         normalized_data_img[base_inten_key + '_sum'] = copy.deepcopy(plot_data[i][-1][base_inten_key])
                         plot_data[i][-1][base_inten_key] /= (RDL_AVER_END - RDL_AVER_START + 1)
-                        normalized_data_img[base_inten_key+'_rdd_aver'] = plot_data[i][-1][base_inten_key]
+                        normalized_data_img[base_inten_key+'_rdl_aver'] = plot_data[i][-1][base_inten_key]
 
                         # plot_data[i][-1]['contact_inten'] /= (RDL_AVER_END - RDL_AVER_START + 1)
                         for k in other_ch_key_list:
@@ -1232,6 +1232,7 @@ if __name__ == '__main__':
 
                 else:
                     # print(normalized_data_img.keys())
+                    print(normalized_data_project.head(), pl.DataFrame(normalized_data_img).head())
                     normalized_data_project = pl.concat([normalized_data_project, pl.DataFrame(normalized_data_img)])
         # normalized_data_project = pl.concat([normalized_data_project, normalized_data_img])
         if RDL_AVER_END > RDL_AVER_START:
