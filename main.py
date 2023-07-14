@@ -51,6 +51,7 @@ err_log = {'impact': [], 'e_msg': [], 'type': [], 'source': []}
 color_list = plt.rcParams['axes.prop_cycle'].by_key()['color'][1:]
 
 WALKER_MAX = 253
+PX_SIZE = 0.123
 X_NORMALIZE = 400
 BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 5
@@ -70,6 +71,7 @@ B_CHANNEL = 1
 
 SETTING_ITEMS = {
     'X_NORMALIZE': X_NORMALIZE,
+    'PX_SIZE': PX_SIZE,
     'BK_SUB': BK_SUB,
     'SHOW_OVERLAP': SHOW_OVERLAP,
     'RING_THICKNESS': RING_THICKNESS,
@@ -89,6 +91,9 @@ if len(sys.argv) > 1:
     print(PARAMETERS)
     if PARAMETERS['INPUT_PATH']:
         INPUT_PATH = PARAMETERS['INPUT_PATH']
+
+    if type(PARAMETERS['PX_SIZE']) is int:
+        PX_SIZE = PARAMETERS['PX_SIZE']
 
     if type(PARAMETERS['ERODE_THICKNESS']) is int:
         ERODE_THICKNESS = PARAMETERS['ERODE_THICKNESS']
@@ -542,6 +547,7 @@ def record_ring(y_edge, x_edge, ring_output, branch_output, base_inten, other_in
             branch_output['index'][count] = count
             branch_output['ring_y'][count] = y_edge
             branch_output['ring_x'][count] = x_edge
+            branch_output['distance_x'][count] = count * PX_SIZE
             branch_output[base_inten_key][count] = base_inten[y_edge,x_edge]
             # branch_output['contact_inten'][count] = other_inten
             branch_output['overlap'][count] = overlap_flag
@@ -554,6 +560,7 @@ def record_ring(y_edge, x_edge, ring_output, branch_output, base_inten, other_in
             ring_output['index'][count] = count
             ring_output['ring_y'][count] = y_edge
             ring_output['ring_x'][count] = x_edge
+            ring_output['distance_x'][count] = count * PX_SIZE
             ring_output[base_inten_key][count] = base_inten[y_edge,x_edge]
             # ring_output['contact_inten'][count] = other_inten
             ring_output['overlap'][count] = overlap_flag
@@ -570,6 +577,28 @@ def conv(val):
         return int(val)
     except ValueError:
         return None
+
+
+def bk_sub_overflow_guard(image_data, base_bk_value, other_chs_bk_value):
+    def overflow_check(inten, bk):
+        if inten < bk:
+            return True
+        else:
+            return False
+    print("checking overflow...")
+    base_min = image_data.select(base_inten_key).min().item()
+    if base_min < base_bk_value:
+        base_bk_value = base_min
+
+    for ch_i, ch in enumerate(other_ch_ind_list):
+        ch_min = image_data.select(CHANNELS[key] + '_inten').min().item()
+        # if ch_min < other_chs_bk_value[ch_i]:
+        #     other_chs_bk_value[ch_i] = ch_min
+        # image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply)
+        image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply(lambda intensity: overflow_check(intensity, other_chs_bk_value[ch_i])).alias('overflow'))
+        overflow_ch = image_data.filter(pl.col(CHANNELS[key] + '_inten') < other_chs_bk_value[ch_i])
+        print(overflow_ch)
+        overflow_ch.write_csv(os.path.realpath('./overflow' + '.csv'))
 
 
 def plot_layer(l=0):
@@ -753,18 +782,18 @@ if __name__ == '__main__':
             threshold_binary = base_ch > thresh
             base_bk = base_ch.astype('float')
             base_bk[base_bk==0] = np.NAN
-            bk_value = np.average(base_bk[threshold_binary==0])
+            bk_value = int(np.average(base_bk[threshold_binary==0]))
             # bk_value = np.average(base_ch[base_ch != 0 & threshold_binary == 0])
             print(bk_value)
 
-            base_ch -= int(bk_value)
-            ax_bk[0].set_title('original')
-            ax_bk[0].imshow(base_bk)
-            ax_bk[1].set_title('subtracted')
-            ax_bk[1].imshow(base_ch)
-            ax_bk[2].set_title('threshold')
-            ax_bk[2].imshow(threshold_binary)
-            plt.show()
+            # base_ch -= int(bk_value)
+            # ax_bk[0].set_title('original')
+            # ax_bk[0].imshow(base_bk)
+            # ax_bk[1].set_title('subtracted')
+            # ax_bk[1].imshow(base_ch)
+            # ax_bk[2].set_title('threshold')
+            # ax_bk[2].imshow(threshold_binary)
+            # plt.show()
             f.write('background for ' + CHANNELS[B_CHANNEL] + ': ' + str(bk_value) + '\n')
             # fig, ax = try_all_threshold(base_ch, figsize=(10, 8), verbose=False)
             # plt.show()
@@ -786,19 +815,19 @@ if __name__ == '__main__':
                 threshold_binary = other_ch_bk > thresh
                 other_ch_bk[other_ch_bk==0] = np.NAN
                 # bk_value_other = np.average(other_ch_bk[threshold_binary == 0])
-                bk_value_other[ch_i] = np.average(other_ch_bk[threshold_binary == 0])
-                other_chs[ch] -= int(bk_value_other[ch_i])
+                bk_value_other[ch_i] = int(np.average(other_ch_bk[threshold_binary == 0]))
+                # other_chs[ch] -= int(bk_value_other[ch_i])
                 print(bk_value_other[ch_i])
 
-                fig_bk, ax_bk = plt.subplots(nrows=1, ncols=3, layout="tight")
-                fig_bk.suptitle(f'channel: {CHANNELS[ch]}', fontsize=16)
-                ax_bk[0].set_title('original')
-                ax_bk[0].imshow(other_ch_bk)
-                ax_bk[1].set_title('subtracted')
-                ax_bk[1].imshow(other_chs[ch])
-                ax_bk[2].set_title('threshold')
-                ax_bk[2].imshow(threshold_binary)
-                plt.show()
+                # fig_bk, ax_bk = plt.subplots(nrows=1, ncols=3, layout="tight")
+                # fig_bk.suptitle(f'channel: {CHANNELS[ch]}', fontsize=16)
+                # ax_bk[0].set_title('original')
+                # ax_bk[0].imshow(other_ch_bk)
+                # ax_bk[1].set_title('subtracted')
+                # ax_bk[1].imshow(other_chs[ch])
+                # ax_bk[2].set_title('threshold')
+                # ax_bk[2].imshow(threshold_binary)
+                # plt.show()
                 f.write('background for ' + CHANNELS[ch] + ': ' + str(bk_value_other) + '\n')
 
         # print(other_chs.keys())
@@ -914,6 +943,7 @@ if __name__ == '__main__':
                              'index': np.zeros((ring_len,), dtype=np.uint16),
                              'ring_y': np.zeros((ring_len,), dtype=np.uint16),
                              'ring_x': np.zeros((ring_len,), dtype=np.uint16),
+                             'distance_x': np.zeros((ring_len,), dtype=np.float16),
                              'overlap': np.full((ring_len,), False, dtype=bool),
                              'closed': np.full((ring_len,), False, dtype=bool),
                              base_inten_key: np.zeros((ring_len,), dtype=np.uint16)}
@@ -1094,8 +1124,6 @@ if __name__ == '__main__':
                     plt.show()
 
             # print(ring_data_image, branch_data_image)
-
-
             # save and export as csv
             # print(ring_data_project)
             try:
@@ -1114,6 +1142,9 @@ if __name__ == '__main__':
 
             # increase thickness
             t += 1
+
+        # safe guard for overflow
+        bk_sub_overflow_guard(ring_data_image, bk_value, bk_value_other)
 
         plot_y_max_droplet = np.sort(ring_data_image[base_inten_key].to_numpy(), axis=None)[-1]
         plot_y_max_droplet = plot_y_max_droplet//10 + plot_y_max_droplet
@@ -1232,9 +1263,10 @@ if __name__ == '__main__':
 
                 else:
                     # print(normalized_data_img.keys())
-                    print(normalized_data_project.head(), pl.DataFrame(normalized_data_img).head())
+                    # print(normalized_data_project.head(), pl.DataFrame(normalized_data_img).head())
                     normalized_data_project = pl.concat([normalized_data_project, pl.DataFrame(normalized_data_img)])
         # normalized_data_project = pl.concat([normalized_data_project, normalized_data_img])
+
         if RDL_AVER_END > RDL_AVER_START:
             normalized_data_project.write_csv(os.path.realpath(output_path + '/normalized_ring_' + str(RDL_AVER_START) + "TO" + str(RDL_AVER_END) + "_" + timestamp + '.csv'))
 
