@@ -582,23 +582,31 @@ def conv(val):
 def bk_sub_overflow_guard(image_data, base_bk_value, other_chs_bk_value):
     def overflow_check(inten, bk):
         if inten < bk:
-            return True
+            return 1
         else:
-            return False
+            return 0
     print("checking overflow...")
     base_min = image_data.select(base_inten_key).min().item()
-    if base_min < base_bk_value:
-        base_bk_value = base_min
+
+    image_data = image_data.with_columns(pl.col(base_inten_key).apply(lambda intensity: overflow_check(intensity, base_bk_value)).alias('overflow_base_' + str(int(base_bk_value))))
+    if BK_SUB:
+        if base_min < base_bk_value:
+            base_bk_value = base_min
+        image_data = image_data.with_columns(
+            pl.col(base_inten_key).apply(lambda intensity: intensity - base_bk_value).alias(
+                base_inten_key))
 
     for ch_i, ch in enumerate(other_ch_ind_list):
         ch_min = image_data.select(CHANNELS[key] + '_inten').min().item()
-        # if ch_min < other_chs_bk_value[ch_i]:
-        #     other_chs_bk_value[ch_i] = ch_min
-        # image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply)
-        image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply(lambda intensity: overflow_check(intensity, other_chs_bk_value[ch_i])).alias('overflow'))
-        overflow_ch = image_data.filter(pl.col(CHANNELS[key] + '_inten') < other_chs_bk_value[ch_i])
-        print(overflow_ch)
-        overflow_ch.write_csv(os.path.realpath('./overflow' + '.csv'))
+
+        image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply(lambda intensity: overflow_check(intensity, other_chs_bk_value[ch_i])).alias('overflow_'+ str(int(other_chs_bk_value[ch_i]))))
+        if BK_SUB:
+            if ch_min < other_chs_bk_value[ch_i]:
+                other_chs_bk_value[ch_i] = ch_min
+            image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply(lambda intensity: intensity - other_chs_bk_value[ch_i]).alias(CHANNELS[key] + '_inten'))
+
+    # image_data.write_csv(os.path.realpath('./image_test.csv'))
+    return image_data
 
 
 def plot_layer(l=0):
@@ -1144,7 +1152,8 @@ if __name__ == '__main__':
             t += 1
 
         # safe guard for overflow
-        bk_sub_overflow_guard(ring_data_image, bk_value, bk_value_other)
+        ring_data_image = bk_sub_overflow_guard(ring_data_image, bk_value, bk_value_other)
+
 
         plot_y_max_droplet = np.sort(ring_data_image[base_inten_key].to_numpy(), axis=None)[-1]
         plot_y_max_droplet = plot_y_max_droplet//10 + plot_y_max_droplet
