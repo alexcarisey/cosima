@@ -547,7 +547,7 @@ def record_ring(y_edge, x_edge, ring_output, branch_output, base_inten, other_in
             branch_output['index'][count] = count
             branch_output['ring_y'][count] = y_edge
             branch_output['ring_x'][count] = x_edge
-            branch_output['distance_x'][count] = count * PX_SIZE
+            branch_output['length_x'][count] = count * PX_SIZE
             branch_output[base_inten_key][count] = base_inten[y_edge,x_edge]
             # branch_output['contact_inten'][count] = other_inten
             branch_output['overlap'][count] = overlap_flag
@@ -560,7 +560,7 @@ def record_ring(y_edge, x_edge, ring_output, branch_output, base_inten, other_in
             ring_output['index'][count] = count
             ring_output['ring_y'][count] = y_edge
             ring_output['ring_x'][count] = x_edge
-            ring_output['distance_x'][count] = count * PX_SIZE
+            ring_output['length_x'][count] = count * PX_SIZE
             ring_output[base_inten_key][count] = base_inten[y_edge,x_edge]
             # ring_output['contact_inten'][count] = other_inten
             ring_output['overlap'][count] = overlap_flag
@@ -588,7 +588,7 @@ def bk_sub_overflow_guard(image_data, base_bk_value, other_chs_bk_value):
     print("checking overflow...")
     base_min = image_data.select(base_inten_key).min().item()
 
-    image_data = image_data.with_columns(pl.col(base_inten_key).apply(lambda intensity: overflow_check(intensity, base_bk_value)).alias('overflow_base_' + str(int(base_bk_value))))
+    image_data = image_data.with_columns(pl.col(base_inten_key).apply(lambda intensity: overflow_check(intensity, base_bk_value)).alias('base_overflow_' + str(int(base_bk_value))))
     if BK_SUB:
         if base_min < base_bk_value:
             base_bk_value = base_min
@@ -599,7 +599,7 @@ def bk_sub_overflow_guard(image_data, base_bk_value, other_chs_bk_value):
     for ch_i, ch in enumerate(other_ch_ind_list):
         ch_min = image_data.select(CHANNELS[key] + '_inten').min().item()
 
-        image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply(lambda intensity: overflow_check(intensity, other_chs_bk_value[ch_i])).alias('overflow_'+ str(int(other_chs_bk_value[ch_i]))))
+        image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply(lambda intensity: overflow_check(intensity, other_chs_bk_value[ch_i])).alias(CHANNELS[key] + '_overflow_' + str(int(other_chs_bk_value[ch_i]))))
         if BK_SUB:
             if ch_min < other_chs_bk_value[ch_i]:
                 other_chs_bk_value[ch_i] = ch_min
@@ -783,8 +783,8 @@ if __name__ == '__main__':
             # base_1d_sort = np.sort(base_ch, axis=None)
             # bk_base = np.sum(base_1d_sort[0:100]) / 100
             # base_ch -= int
-            fig_bk, ax_bk = plt.subplots(nrows=1, ncols=3, layout="tight")
-            fig_bk.suptitle(f'channel: {CHANNELS[B_CHANNEL]}', fontsize=16)
+            # fig_bk, ax_bk = plt.subplots(nrows=1, ncols=3, layout="tight")
+            # fig_bk.suptitle(f'channel: {CHANNELS[B_CHANNEL]}', fontsize=16)
 
             thresh = threshold_mean(base_ch)
             threshold_binary = base_ch > thresh
@@ -951,7 +951,7 @@ if __name__ == '__main__':
                              'index': np.zeros((ring_len,), dtype=np.uint16),
                              'ring_y': np.zeros((ring_len,), dtype=np.uint16),
                              'ring_x': np.zeros((ring_len,), dtype=np.uint16),
-                             'distance_x': np.zeros((ring_len,), dtype=np.float16),
+                             'length_x': np.zeros((ring_len,), dtype=np.float16),
                              'overlap': np.full((ring_len,), False, dtype=bool),
                              'closed': np.full((ring_len,), False, dtype=bool),
                              base_inten_key: np.zeros((ring_len,), dtype=np.uint16)}
@@ -1153,7 +1153,12 @@ if __name__ == '__main__':
 
         # safe guard for overflow
         ring_data_image = bk_sub_overflow_guard(ring_data_image, bk_value, bk_value_other)
-
+        # print(ring_data_image.head())
+        try:
+            ring_data_image.write_csv(os.path.realpath(output_path+'/'+raw_file_name+'_'+ timestamp + '.csv'))
+        except Exception as e:
+            print(e)
+            error_logging('high', str(e), 'empty table', raw_file_name + ".tif")
 
         plot_y_max_droplet = np.sort(ring_data_image[base_inten_key].to_numpy(), axis=None)[-1]
         plot_y_max_droplet = plot_y_max_droplet//10 + plot_y_max_droplet
@@ -1203,13 +1208,12 @@ if __name__ == '__main__':
             other_chs_plot_data = {}
             for k in other_ch_key_list:
                 other_chs_plot_data[k] = layer_data[k].to_list()
-            index_data = layer_data["index"].to_list()
+            length_data = layer_data["length_x"].to_list()
             overlap_data = layer_data["overlap"].to_list()
 
             other_chs_inter = {}
-            normalized_data_img = {}
-            normalized_data_img[base_inten_key + '_sum'] = np.full((X_NORMALIZE,), np.nan)
-            normalized_data_img[base_inten_key + '_rdl_aver'] = np.full((X_NORMALIZE,), np.nan)
+            normalized_data_img = {base_inten_key + '_sum': np.full((X_NORMALIZE,), np.nan),
+                                   base_inten_key + '_rdl_aver': np.full((X_NORMALIZE,), np.nan)}
             for k in other_ch_key_list:
                 normalized_data_img[k + '_sum'] = np.full((X_NORMALIZE,), np.nan)
                 normalized_data_img[k + '_rdl_aver'] = np.full((X_NORMALIZE,), np.nan)
@@ -1218,13 +1222,16 @@ if __name__ == '__main__':
                 normalized_data_img['img'] = np.full((X_NORMALIZE,), item['file'])
                 normalized_data_img['object_id'] = np.full((X_NORMALIZE,), row['object_id'])
                 normalized_data_img['layer'] = np.full((X_NORMALIZE,), x)
-                ring_inter = interpolate.interp1d(index_data[x], ring_data[x])
+                ring_inter = interpolate.interp1d(length_data[x], ring_data[x])
 
                 for k in other_ch_key_list:
-                    other_chs_inter[k] = interpolate.interp1d(index_data[x], other_chs_plot_data[k][x])
-                new_x = np.linspace(index_data[x][0], index_data[x][-1], X_NORMALIZE)
+                    other_chs_inter[k] = interpolate.interp1d(length_data[x], other_chs_plot_data[k][x])
+                new_x = np.linspace(length_data[x][0], length_data[x][-1], X_NORMALIZE)
+                normalized_data_img['length'] = new_x
+                plot_data[i][x]['length'] = new_x
                 plot_data[i][x][base_inten_key] = ring_inter(new_x)
-                normalized_data_img[base_inten_key] = ring_inter(new_x)
+                # normalized_data_img[base_inten_key] = ring_inter(new_x)
+                normalized_data_img[base_inten_key] = copy.deepcopy(plot_data[i][x][base_inten_key])
                 # plot_data[i][x]['contact_inten'] = contact_inter(new_x)
                 for k in other_ch_key_list:
                     plot_data[i][x][k] = other_chs_inter[k](new_x)
@@ -1251,6 +1258,7 @@ if __name__ == '__main__':
                     if x == RDL_AVER_END:
                         normalized_data_img[base_inten_key + '_sum'] = copy.deepcopy(plot_data[i][-1][base_inten_key])
                         plot_data[i][-1][base_inten_key] /= (RDL_AVER_END - RDL_AVER_START + 1)
+                        plot_data[i][-1]['length'] = plot_data[i][RDL_AVER_END-1]['length']
                         normalized_data_img[base_inten_key+'_rdl_aver'] = plot_data[i][-1][base_inten_key]
 
                         # plot_data[i][-1]['contact_inten'] /= (RDL_AVER_END - RDL_AVER_START + 1)
@@ -1330,96 +1338,124 @@ if __name__ == '__main__':
             controls = iplt.imshow(show_layer, layer=slider_layer, ax=ax)
             fig.suptitle(f"traverse map")
             plt.get_current_fig_manager().window.setGeometry(0, 0, 640, 480)
+            plt.draw()
 
-            # plotting intensity for the whole layer
-            controls_plot = [[None for _ in range(len(CHANNELS.keys()))] for _ in range(arr_cen.shape[0])]
-            # controls_plot = [[] for _ in range(len(CHANNELS.keys())) for _ in range(arr_cen.shape[0])]
-            c = int(math.ceil(np.sqrt(arr_cen.shape[0])))
-            r = int(arr_cen.shape[0] / c + 1)
-            # print(c, r, controls_plot)
-            fig, ax2 = plt.subplots(r, c, sharex=True, sharey=True, figsize=(4*c, 3*r))
-            fig.suptitle(f"intensity plot for image: {raw_file_name}")
-            fig.subplots_adjust(hspace=0, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
-            lines_ax_twin = []
-            labels_ax_twin = []
-
-            for i, row in enumerate(arr_cen.iter_rows(named=True)):
-                table_row = i // c
-                table_col = i % c
-                axfreq_droplet = plt.axes([1, 0.95, 0.1, 0.01])  # right, top, length, width
-                slider_droplet = Slider(axfreq_droplet, label="", valmin=i, valmax=i, valstep=1)
-                ax_twin = ax2[table_row, table_col].twinx()
-                controls_plot[i][0] = iplt.plot(show_ring_plots, label=base_inten_key.replace('_inten',''), layer=slider_layer, droplet_index=slider_droplet,
-                                                ax=ax2[table_row, table_col])
-                for k_i, k in enumerate(other_ch_key_list):
-                    axfreq_ch = plt.axes([1, 0.95, 0.1, 0.01])  # right, top, length, width
-                    slider_ch = Slider(axfreq_ch, label="", valmin=k_i, valmax=k_i, valstep=1)
-                    controls_plot[i][1] = iplt.plot(show_other_chs_plots, label=k.replace('_inten',''), color=color_list[k_i%9], layer=slider_layer,
-                                                    droplet_index=slider_droplet, channel=slider_ch, ax=ax_twin)
-
-                ax2[table_row, table_col].set_ylim([0, plot_y_max_droplet])
-                ax2[table_row, table_col].set_title(f"object_id: {row['object_id']}", y=1.0, pad=-14)
-                ax2[table_row, table_col].set_xlabel('distance(normalized)')
-                if i == c - 1:
-                    ax2[table_row, table_col].legend(loc="upper left")
-                    ax_twin.legend(loc='upper right')
-                    # plt.legend(handles=lines_ax_twin, loc='upper right')
-                    # fig.legend()
-                if table_col == 0:
-                    ax2[table_row, table_col].set_ylabel('raw intensity')
-                ax_twin.set_ylim([0, plot_y_max_other_chs])
-                ax2[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
-                if table_col != c - 1:
-                    ax_twin.yaxis.set_visible(False)
-                else:
-                    ax_twin.tick_params(axis="y", labelcolor="red")
-
-            plt.show()
+        # =========================================================== interactive intensity plots by layer ====================================================
+        # # plotting intensity for the whole layer
+        # controls_plot = [[None for _ in range(len(CHANNELS.keys()))] for _ in range(arr_cen.shape[0])]
+        # # controls_plot = [[] for _ in range(len(CHANNELS.keys())) for _ in range(arr_cen.shape[0])]
+        # c = int(math.ceil(np.sqrt(arr_cen.shape[0])))
+        # r = int(arr_cen.shape[0] / c + 1)
+        # # print(c, r, controls_plot)
+        # fig, ax2 = plt.subplots(r, c, sharex=True, sharey=True, figsize=(4*c, 3*r))
+        # fig.suptitle(f"intensity plot for image: {raw_file_name}")
+        # fig.subplots_adjust(hspace=0, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
+        # lines_ax_twin = []
+        # labels_ax_twin = []
+        #
+        # for i, row in enumerate(arr_cen.iter_rows(named=True)):
+        #     table_row = i // c
+        #     table_col = i % c
+        #     axfreq_droplet = plt.axes([1, 0.95, 0.1, 0.01])  # right, top, length, width
+        #     slider_droplet = Slider(axfreq_droplet, label="", valmin=i, valmax=i, valstep=1)
+        #     ax_twin = ax2[table_row, table_col].twinx()
+        #     controls_plot[i][0] = iplt.plot(show_ring_plots, label=base_inten_key.replace('_inten',''), layer=slider_layer, droplet_index=slider_droplet,
+        #                                     ax=ax2[table_row, table_col])
+        #     for k_i, k in enumerate(other_ch_key_list):
+        #         axfreq_ch = plt.axes([1, 0.95, 0.1, 0.01])  # right, top, length, width
+        #         slider_ch = Slider(axfreq_ch, label="", valmin=k_i, valmax=k_i, valstep=1)
+        #         controls_plot[i][1] = iplt.plot(show_other_chs_plots, label=k.replace('_inten',''), color=color_list[k_i%9], layer=slider_layer,
+        #                                         droplet_index=slider_droplet, channel=slider_ch, ax=ax_twin)
+        #
+        #     ax2[table_row, table_col].set_ylim([0, plot_y_max_droplet])
+        #     ax2[table_row, table_col].set_title(f"object_id: {row['object_id']}", y=1.0, pad=-14)
+        #     ax2[table_row, table_col].set_xlabel('distance(normalized)')
+        #     if i == c - 1:
+        #         ax2[table_row, table_col].legend(loc="upper left")
+        #         ax_twin.legend(loc='upper right')
+        #         # plt.legend(handles=lines_ax_twin, loc='upper right')
+        #         # fig.legend()
+        #     if table_col == 0:
+        #         ax2[table_row, table_col].set_ylabel('raw intensity')
+        #     ax_twin.set_ylim([0, plot_y_max_other_chs])
+        #     ax2[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
+        #     if table_col != c - 1:
+        #         ax_twin.yaxis.set_visible(False)
+        #     else:
+        #         ax_twin.tick_params(axis="y", labelcolor="red")
+        #
+        # plt.show()
+        # =========================================================== interactive intensity plots by layer ====================================================
 
         c = int(math.ceil(np.sqrt(arr_cen.shape[0])))
         r = int(arr_cen.shape[0] / c + 1)
         for x in range(RING_THICKNESS+1):
             if (RDL_AVER == 0 and x == RING_THICKNESS) or (RING_THICKNESS == 1 and x == RING_THICKNESS):
                 break
-            fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c, sharex=True, sharey=True, figsize=(c*4, r*3))
+            # fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c, sharex=True, sharey=True, figsize=(c*4, r*3))
+            fig_layer, ax_layer = plt.subplots(nrows=r, ncols=c, sharex=False, sharey=True, figsize=(c * 4, r * 3))
             if x == RING_THICKNESS:
                 fig_layer.suptitle(f"intensity plot for layer: Radial Average")
             else:
                 fig_layer.suptitle(f"intensity plot for layer: {x+1}")
-            fig_layer.subplots_adjust(hspace=0, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
-            for i, row in enumerate(arr_cen.iter_rows(named=True)):
+            fig_layer.text(0.5, 0.04, 'length(um)', ha='center')
+            fig_layer.text(0.01, 0.5, 'Raw intensity', va='center', rotation='vertical')
+
+            fig_layer.subplots_adjust(hspace=0.1, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
+            # for i, row in enumerate(arr_cen.iter_rows(named=True)):
+            for i in range(c*r):
 
                 table_row = i // c
                 table_col = i % c
-                ax_layer_twin = ax_layer[table_row, table_col].twinx()
-                ax_layer[table_row, table_col].plot(plot_data[i][x][base_inten_key], label=base_inten_key.replace('_inten',''))
-                # ax_layer_twin.plot(plot_data[i][x]['contact_inten'], label="FABCCON", color="red")
-                for k_i, k in enumerate(other_ch_key_list):
-                    ax_layer_twin.plot(plot_data[i][x][k], label=k.replace('_inten',''), color=color_list[k_i%9])
+                if i < arr_cen.shape[0]:
+                    void_row = arr_cen.row(i)
+                    # ax_layer[table_row, table_col].xticks(np.linspace(plot_data[i][x]['length'][0], plot_data[i][x]['length'][-1], num=5))
+                    ax_layer_twin = ax_layer[table_row, table_col].twinx()
+                    ax_layer[table_row, table_col].plot(plot_data[i][x]['length'], plot_data[i][x][base_inten_key], label=base_inten_key.replace('_inten',''))
+                    ax_layer[table_row, table_col].tick_params(axis="x", labelbottom=True, direction="in", pad=3)
 
-                ax_layer[table_row, table_col].set_ylim([0, plot_y_max_droplet])
-                ax_layer[table_row, table_col].set_title(f"object_id: {row['object_id']}", y=1.0, pad=-14)
-                ax_layer[table_row, table_col].set_xlabel('distance (px)')
-                if i == c - 1:
-                    ax_layer[table_row, table_col].legend(loc="upper left")
-                    ax_layer_twin.legend(loc='upper right')
-                    # fig.legend()
-                if table_col == 0:
-                    ax_layer[table_row, table_col].set_ylabel('raw intensity')
-                ax_layer_twin.set_ylim([0, plot_y_max_other_chs])
-                ax_layer[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
-                if table_col != c - 1:
-                    ax_layer_twin.yaxis.set_visible(False)
+                    ax_layer[table_row, table_col].set_xticks(
+                        np.linspace(plot_data[i][x]['length'][0], plot_data[i][x]['length'][-1], num=5))
+                    x_padding = plot_data[i][x]['length'][-1]/10
+                    ax_layer[table_row, table_col].set_xlim([0-x_padding, plot_data[i][x]['length'][-1]+x_padding])
+                    ax_layer[table_row, table_col].set_yticks(np.linspace(0, plot_y_max_droplet, num=4))
+                    ax_layer[table_row, table_col].set_ylim([0, plot_y_max_droplet])
+                    ax_layer[table_row, table_col].set_title(f"object_id: {void_row[0]}", y=1.0, pad=-35)
+                    ax_layer[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
+
+                    # ax_layer_twin.plot(plot_data[i][x]['contact_inten'], label="FABCCON", color="red")
+                    for k_i, k in enumerate(other_ch_key_list):
+                        ax_layer_twin.plot(plot_data[i][x]['length'], plot_data[i][x][k], label=k.replace('_inten',''), color=color_list[k_i%9])
+
+                    # ax_layer[table_row, table_col].set_xlabel('distance (px)')
+                    if i == c - 1:
+                        ax_layer[table_row, table_col].legend(loc="upper left")
+                        ax_layer_twin.legend(loc='upper right')
+                        # fig.legend()
+                    # if table_col == 0:
+                        # ax_layer[table_row, table_col].set_ylabel('raw intensity')
+                    ax_layer_twin.set_yticks(np.linspace(0, plot_y_max_other_chs, num=4))
+                    ax_layer_twin.set_ylim([0, plot_y_max_other_chs])
+                    ax_layer[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
+                    if table_col != c - 1:
+                        ax_layer_twin.yaxis.set_visible(False)
+                    else:
+                        ax_layer_twin.tick_params(axis="y", labelcolor="red")
+
                 else:
-                    ax_layer_twin.tick_params(axis="y", labelcolor="red")
-            plt.savefig(os.path.realpath(output_path + '/' + raw_file_name + '_layer' + str(x+1) + '_' + timestamp + '.png'))
-            plt.close(fig_layer)
+                    ax_layer[table_row, table_col].xaxis.set_visible(False)
+
+            if not SHOW_PLOTS:
+                plt.savefig(os.path.realpath(output_path + '/' + raw_file_name + '_layer' + str(x+1) + '_' + timestamp + '.png'))
+                # plt.close(fig_layer)
+        if SHOW_PLOTS:
+            plt.show()
 
         print("==============================================NEW IMAGE=================================================")
-        try:
-            ring_data_image.write_csv(os.path.realpath(output_path+'/'+raw_file_name+'_'+ timestamp + '.csv'))
-        except Exception as e:
-            print(e)
-            error_logging('high', str(e), 'empty table', raw_file_name + ".tif")
+        # try:
+        #     ring_data_image.write_csv(os.path.realpath(output_path+'/'+raw_file_name+'_'+ timestamp + '.csv'))
+        # except Exception as e:
+        #     print(e)
+        #     error_logging('high', str(e), 'empty table', raw_file_name + ".tif")
     # print(ring_data_project.shape)
     f.close()
