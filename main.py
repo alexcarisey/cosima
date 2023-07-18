@@ -52,13 +52,13 @@ color_list = plt.rcParams['axes.prop_cycle'].by_key()['color'][1:]
 
 WALKER_MAX = 253
 PX_SIZE = 0.123
-X_NORMALIZE = 400
+X_NORMALIZE = 800
 BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 5
 ERODE_THICKNESS = 1
 INPUT_PATH = os.path.realpath(r'./input')
 RDL_AVER = True
-RDL_AVER_START = 0
+RDL_AVER_START = 1
 RDL_AVER_END = RING_THICKNESS-1
 SHOW_PLOTS = True
 CHANNELS = {1:'halo', 2:'fabccon'}
@@ -92,7 +92,7 @@ if len(sys.argv) > 1:
     if PARAMETERS['INPUT_PATH']:
         INPUT_PATH = PARAMETERS['INPUT_PATH']
 
-    if type(PARAMETERS['PX_SIZE']) is int:
+    if type(PARAMETERS['PX_SIZE']) is int or type(PARAMETERS['PX_SIZE']) is float:
         PX_SIZE = PARAMETERS['PX_SIZE']
 
     if type(PARAMETERS['ERODE_THICKNESS']) is int:
@@ -697,7 +697,11 @@ if __name__ == '__main__':
 
     # load images and tables from file_lookup_list
     for item in file_lookup_list.filter(pl.col("type") == 'bmask_table').iter_rows(named=True):
+        normalized_data_image = None
+        normalized_data_img_rdl_aver = None
         raw_file_name = item['file'].replace('_table', '')
+        output_path_img = os.path.realpath("./output/output_" + timestamp + '/' + raw_file_name)
+        os.makedirs(output_path_img)
         f.write('=====================================================================\n')
         f.write('file:' + raw_file_name + '\n')
         # lazy load centroids table
@@ -722,8 +726,8 @@ if __name__ == '__main__':
             edge_copy = arr_bmask.copy()
             edge_copy[edge_copy == 2] = 0
             arr_cen = clear_border_vicinity(arr_cen, RING_THICKNESS+2, edge_copy.shape)
-            plt.imshow(edge_copy)
-            plt.show()
+            # plt.imshow(edge_copy)
+            # plt.show()
 
             arr_cen = gen_outline_bmask(edge_copy)
             f.write('voids after erosion: ' + str(arr_cen.shape[0]) + '\n')
@@ -1155,7 +1159,8 @@ if __name__ == '__main__':
         ring_data_image = bk_sub_overflow_guard(ring_data_image, bk_value, bk_value_other)
         # print(ring_data_image.head())
         try:
-            ring_data_image.write_csv(os.path.realpath(output_path+'/'+raw_file_name+'_'+ timestamp + '.csv'))
+            ring_data_image.drop('image').write_csv(os.path.realpath(output_path_img+'/'+raw_file_name+'_'+ timestamp + '.csv'))
+            # print(ring_data_image.head())
         except Exception as e:
             print(e)
             error_logging('high', str(e), 'empty table', raw_file_name + ".tif")
@@ -1212,35 +1217,37 @@ if __name__ == '__main__':
             overlap_data = layer_data["overlap"].to_list()
 
             other_chs_inter = {}
-            normalized_data_img = {base_inten_key + '_sum': np.full((X_NORMALIZE,), np.nan),
-                                   base_inten_key + '_rdl_aver': np.full((X_NORMALIZE,), np.nan)}
-            for k in other_ch_key_list:
-                normalized_data_img[k + '_sum'] = np.full((X_NORMALIZE,), np.nan)
-                normalized_data_img[k + '_rdl_aver'] = np.full((X_NORMALIZE,), np.nan)
+            normalized_data_ring = {}
+            # normalized_data_ring = {base_inten_key + '_sum': np.full((X_NORMALIZE,), np.nan),
+            #                        base_inten_key + '_rdl_aver': np.full((X_NORMALIZE,), np.nan)}
+            # for k in other_ch_key_list:
+            #     normalized_data_ring[k + '_sum'] = np.full((X_NORMALIZE,), np.nan)
+            #     normalized_data_ring[k + '_rdl_aver'] = np.full((X_NORMALIZE,), np.nan)
 
             for x in range(RING_THICKNESS):
-                normalized_data_img['img'] = np.full((X_NORMALIZE,), item['file'])
-                normalized_data_img['object_id'] = np.full((X_NORMALIZE,), row['object_id'])
-                normalized_data_img['layer'] = np.full((X_NORMALIZE,), x)
+                # normalized_data_ring['img'] = np.full((X_NORMALIZE,), item['file'])
+                normalized_data_ring['object_id'] = np.full((X_NORMALIZE,), row['object_id'])
+                normalized_data_ring['layer'] = np.full((X_NORMALIZE,), x+1)
                 ring_inter = interpolate.interp1d(length_data[x], ring_data[x])
 
                 for k in other_ch_key_list:
                     other_chs_inter[k] = interpolate.interp1d(length_data[x], other_chs_plot_data[k][x])
                 new_x = np.linspace(length_data[x][0], length_data[x][-1], X_NORMALIZE)
-                normalized_data_img['length'] = new_x
+                normalized_data_ring['length'] = new_x
                 plot_data[i][x]['length'] = new_x
                 plot_data[i][x][base_inten_key] = ring_inter(new_x)
-                # normalized_data_img[base_inten_key] = ring_inter(new_x)
-                normalized_data_img[base_inten_key] = copy.deepcopy(plot_data[i][x][base_inten_key])
+                # normalized_data_ring[base_inten_key] = ring_inter(new_x)
+                normalized_data_ring[base_inten_key] = copy.deepcopy(plot_data[i][x][base_inten_key])
                 # plot_data[i][x]['contact_inten'] = contact_inter(new_x)
                 for k in other_ch_key_list:
                     plot_data[i][x][k] = other_chs_inter[k](new_x)
-                    normalized_data_img[k] = other_chs_inter[k](new_x)
+                    normalized_data_ring[k] = other_chs_inter[k](new_x)
 
-                # set up compression intensity
-                if RDL_AVER_END > RDL_AVER_START and RDL_AVER_START <= x <= RDL_AVER_END:
+                # cook radial average
+                if RDL_AVER_END > RDL_AVER_START and RDL_AVER_START-1 <= x <= RDL_AVER_END-1:
+                    rdl_aver_data_img = {}
                     # initialize first compression layer
-                    if x == RDL_AVER_START:
+                    if x == RDL_AVER_START-1:
                         plot_data[i][-1][base_inten_key] = np.array(plot_data[i][x][base_inten_key])
                         # plot_data[i][-1]['contact_inten'] = np.array(plot_data[i][x]['contact_inten'])
                         for k in other_ch_key_list:
@@ -1255,17 +1262,36 @@ if __name__ == '__main__':
                                                                       np.array(plot_data[i][x][k]))
                     # print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
                     #calculate radial average at end layer
-                    if x == RDL_AVER_END:
-                        normalized_data_img[base_inten_key + '_sum'] = copy.deepcopy(plot_data[i][-1][base_inten_key])
+                    if x == RDL_AVER_END-1:
+                        # normalized_data_ring[base_inten_key + '_sum'] = copy.deepcopy(plot_data[i][-1][base_inten_key])
+                        # plot_data[i][-1][base_inten_key] /= (RDL_AVER_END - RDL_AVER_START + 1)
+                        # plot_data[i][-1]['length'] = plot_data[i][RDL_AVER_END-1]['length']
+                        # normalized_data_ring[base_inten_key+'_rdl_aver'] = plot_data[i][-1][base_inten_key]
+                        #
+                        # # plot_data[i][-1]['contact_inten'] /= (RDL_AVER_END - RDL_AVER_START + 1)
+                        # for k in other_ch_key_list:
+                        #     normalized_data_ring[k + '_sum'] = copy.deepcopy(plot_data[i][-1][k])
+                        #     plot_data[i][-1][k] /= (RDL_AVER_END - RDL_AVER_START + 1)
+                        #     normalized_data_ring[k + '_rdl_aver'] = plot_data[i][-1][k]
+                        rdl_aver_data_img['object_id'] = np.full((X_NORMALIZE,), row['object_id'])
+                        rdl_aver_data_img['layer'] = np.full((X_NORMALIZE,), x+1)
+                        rdl_aver_data_img['length'] = plot_data[i][RDL_AVER_END - 1]['length']
+                        rdl_aver_data_img[base_inten_key + '_sum'] = copy.deepcopy(plot_data[i][-1][base_inten_key])
                         plot_data[i][-1][base_inten_key] /= (RDL_AVER_END - RDL_AVER_START + 1)
-                        plot_data[i][-1]['length'] = plot_data[i][RDL_AVER_END-1]['length']
-                        normalized_data_img[base_inten_key+'_rdl_aver'] = plot_data[i][-1][base_inten_key]
+                        plot_data[i][-1]['length'] = plot_data[i][RDL_AVER_END - 1]['length']
+                        rdl_aver_data_img[base_inten_key + '_rdl_aver'] = plot_data[i][-1][base_inten_key]
 
                         # plot_data[i][-1]['contact_inten'] /= (RDL_AVER_END - RDL_AVER_START + 1)
                         for k in other_ch_key_list:
-                            normalized_data_img[k + '_sum'] = copy.deepcopy(plot_data[i][-1][k])
+                            rdl_aver_data_img[k + '_sum'] = copy.deepcopy(plot_data[i][-1][k])
                             plot_data[i][-1][k] /= (RDL_AVER_END - RDL_AVER_START + 1)
-                            normalized_data_img[k + '_rdl_aver'] = plot_data[i][-1][k]
+                            rdl_aver_data_img[k + '_rdl_aver'] = plot_data[i][-1][k]
+
+                        if normalized_data_img_rdl_aver is None:
+                            normalized_data_img_rdl_aver = pl.DataFrame(rdl_aver_data_img)
+                        else:
+                            normalized_data_img_rdl_aver = pl.concat(
+                                [normalized_data_img_rdl_aver, pl.DataFrame(rdl_aver_data_img)])
 
                 # if no compression, copy the value of last layer for compression layer
                 if RDL_AVER_END <= RDL_AVER_START:
@@ -1276,15 +1302,24 @@ if __name__ == '__main__':
                         plot_data[i][-1][k] = np.full((X_NORMALIZE,), np.nan)
 
                 if normalized_data_project is None:
-                    normalized_data_project = pl.DataFrame(normalized_data_img)
-
+                    normalized_data_project = pl.DataFrame(normalized_data_ring)
                 else:
-                    # print(normalized_data_img.keys())
-                    # print(normalized_data_project.head(), pl.DataFrame(normalized_data_img).head())
-                    normalized_data_project = pl.concat([normalized_data_project, pl.DataFrame(normalized_data_img)])
-        # normalized_data_project = pl.concat([normalized_data_project, normalized_data_img])
+                    normalized_data_project = pl.concat([normalized_data_project, pl.DataFrame(normalized_data_ring)])
+
+                if normalized_data_image is None:
+                    normalized_data_image = pl.DataFrame(normalized_data_ring)
+                else:
+                    normalized_data_image = pl.concat([normalized_data_image, pl.DataFrame(normalized_data_ring)])
+
+
+
+
+
+        # normalized_data_project = pl.concat([normalized_data_project, normalized_data_ring])
 
         if RDL_AVER_END > RDL_AVER_START:
+            normalized_data_img_rdl_aver.write_csv(os.path.realpath(output_path_img + '/' + raw_file_name + '_rdl_aver_' + str(RDL_AVER_START) + "TO" + str(RDL_AVER_END) + "_" + timestamp + '.csv'))
+            normalized_data_image.write_csv(os.path.realpath(output_path_img + '/' + raw_file_name + '_normalized_ring_' + str(RDL_AVER_START) + "TO" + str(RDL_AVER_END) + "_" + timestamp + '.csv'))
             normalized_data_project.write_csv(os.path.realpath(output_path + '/normalized_ring_' + str(RDL_AVER_START) + "TO" + str(RDL_AVER_END) + "_" + timestamp + '.csv'))
 
         if SHOW_PLOTS:
@@ -1398,13 +1433,12 @@ if __name__ == '__main__':
                 fig_layer.suptitle(f"intensity plot for layer: Radial Average")
             else:
                 fig_layer.suptitle(f"intensity plot for layer: {x+1}")
-            fig_layer.text(0.5, 0.04, 'length(um)', ha='center')
-            fig_layer.text(0.01, 0.5, 'Raw intensity', va='center', rotation='vertical')
+            fig_layer.text(0.5, 0.02, 'length(um)', ha='center')
+            fig_layer.text(0.02, 0.5, 'Raw intensity', va='center', rotation='vertical')
 
             fig_layer.subplots_adjust(hspace=0.1, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
             # for i, row in enumerate(arr_cen.iter_rows(named=True)):
             for i in range(c*r):
-
                 table_row = i // c
                 table_col = i % c
                 if i < arr_cen.shape[0]:
@@ -1420,7 +1454,7 @@ if __name__ == '__main__':
                     ax_layer[table_row, table_col].set_xlim([0-x_padding, plot_data[i][x]['length'][-1]+x_padding])
                     ax_layer[table_row, table_col].set_yticks(np.linspace(0, plot_y_max_droplet, num=4))
                     ax_layer[table_row, table_col].set_ylim([0, plot_y_max_droplet])
-                    ax_layer[table_row, table_col].set_title(f"object_id: {void_row[0]}", y=1.0, pad=-35)
+                    ax_layer[table_row, table_col].set_title(f"object_id: {void_row[0]}", y=1.0, pad=-15)
                     ax_layer[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
 
                     # ax_layer_twin.plot(plot_data[i][x]['contact_inten'], label="FABCCON", color="red")
@@ -1445,9 +1479,11 @@ if __name__ == '__main__':
                 else:
                     ax_layer[table_row, table_col].xaxis.set_visible(False)
 
-            if not SHOW_PLOTS:
-                plt.savefig(os.path.realpath(output_path + '/' + raw_file_name + '_layer' + str(x+1) + '_' + timestamp + '.png'))
+            # if not SHOW_PLOTS:
+            #     plt.savefig(os.path.realpath(output_path_img + '/' + raw_file_name + '_layer' + str(x+1) + '_' + timestamp + '.png'))
                 # plt.close(fig_layer)
+            plt.savefig(os.path.realpath(
+                output_path_img + '/' + raw_file_name + '_layer' + str(x + 1) + '_' + timestamp + '.png'))
         if SHOW_PLOTS:
             plt.show()
 
