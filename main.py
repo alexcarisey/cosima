@@ -1265,8 +1265,8 @@ if __name__ == '__main__':
                         for k in other_ch_keys:
                             plot_data[i][-1][k] = np.array(plot_data[i][x][k])
                     else:
-                        print(row["object_id"], x, RDL_AVER_START)
-                        print(type(plot_data[i][-1][base_key]), type(plot_data[i][x][base_key]))
+                        # print(row["object_id"], x, RDL_AVER_START)
+                        # print(type(plot_data[i][-1][base_key]), type(plot_data[i][x][base_key]))
                         plot_data[i][-1][base_key] = np.add(plot_data[i][-1][base_key],
                                                                 plot_data[i][x][base_key])
                     # plot_data[i][-1]['contact_inten'] = np.add(plot_data[i][-1]['contact_inten'],
