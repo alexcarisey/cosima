@@ -51,16 +51,16 @@ err_log = {'impact': [], 'e_msg': [], 'type': [], 'source': []}
 color_list = plt.rcParams['axes.prop_cycle'].by_key()['color'][1:]
 
 WALKER_MAX = 253
-PX_SIZE = 0.108
+PX_SIZE = 0.10825
 X_NORMALIZE = 800
-BK_SUB, SHOW_OVERLAP = False, True
+BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 5
-ERODE_THICKNESS = 1
+ERODE_THICKNESS = 0
 INPUT_PATH = os.path.realpath(r'./input')
 RDL_AVER = True
 RDL_AVER_START = 1
-RDL_AVER_END = RING_THICKNESS-1
-SHOW_PLOTS = True
+RDL_AVER_END = RING_THICKNESS
+SHOW_PLOTS = False
 CHANNELS = {1:'halo', 2:'fabccon'}
 B_CHANNEL = 1
 # if len(sys.argv) == 1:
@@ -113,10 +113,10 @@ if len(sys.argv) > 1:
         RDL_AVER = PARAMETERS['RDL_AVER']
 
     if type(PARAMETERS['RDL_AVER_START']) is int:
-        RDL_AVER_START = PARAMETERS['RDL_AVER_START']-1
+        RDL_AVER_START = PARAMETERS['RDL_AVER_START']
 
     if type(PARAMETERS['RDL_AVER_END']) is int:
-        RDL_AVER_END = PARAMETERS['RDL_AVER_END']-1
+        RDL_AVER_END = PARAMETERS['RDL_AVER_END']
 
     if not PARAMETERS['SHOW_PLOTS']:
         # print(PARAMETERS['SHOW_OVERLAP'])
@@ -1265,13 +1265,15 @@ if __name__ == '__main__':
                         for k in other_ch_keys:
                             plot_data[i][-1][k] = np.array(plot_data[i][x][k])
                     else:
+                        print(row["object_id"], x, RDL_AVER_START)
+                        print(type(plot_data[i][-1][base_key]), type(plot_data[i][x][base_key]))
                         plot_data[i][-1][base_key] = np.add(plot_data[i][-1][base_key],
-                                                                np.array(plot_data[i][x][base_key]))
+                                                                plot_data[i][x][base_key])
                     # plot_data[i][-1]['contact_inten'] = np.add(plot_data[i][-1]['contact_inten'],
                     #                                            np.array(plot_data[i][x]['contact_inten']))
                         for k in other_ch_keys:
                             plot_data[i][-1][k] = np.add(plot_data[i][-1][k],
-                                                                      np.array(plot_data[i][x][k]))
+                                                                      plot_data[i][x][k])
                     # print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
                     #calculate radial average at end layer
                     if x == RDL_AVER_END-1:
@@ -1497,6 +1499,8 @@ if __name__ == '__main__':
                 # plt.close(fig_layer)
             plt.savefig(os.path.realpath(
                 output_path_img + '/' + raw_file_name + '_layer' + str(x + 1) + '_' + timestamp + '.png'))
+            if not SHOW_PLOTS:
+                plt.close(fig_layer)
         if SHOW_PLOTS:
             plt.show()
 
