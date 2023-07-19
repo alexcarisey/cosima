@@ -51,7 +51,7 @@ err_log = {'impact': [], 'e_msg': [], 'type': [], 'source': []}
 color_list = plt.rcParams['axes.prop_cycle'].by_key()['color'][1:]
 
 WALKER_MAX = 253
-PX_SIZE = 0.123
+PX_SIZE = 0.108
 X_NORMALIZE = 800
 BK_SUB, SHOW_OVERLAP = True, True
 RING_THICKNESS = 5
@@ -172,7 +172,7 @@ def file_ext_check(input_path, valid_format):
                             other_ch_ind_list.append(channel)
                             # print(channel, CHANNELS)
                             try:
-                                other_ch_key_list.append(CHANNELS[channel]+"_inten")
+                                other_ch_key_list.append(CHANNELS[channel]+"_inten_raw")
                             except Exception as err:
                                 sys.exit('no channel ' + str(channel) + ' found from user setting')
                                 # error_logging('high', err, 'no channel ' + str(channel) + ' found from user setting',
@@ -404,7 +404,7 @@ def edge_recur(y_edge, x_edge, b_mask, base_inten, other_inten, edge_num, cast_n
     # input("press enter to continue...")
     # # clearConsole()
     # print("current y x: ", y_edge, x_edge)
-    # print("starting y x: ", ring_output['ring_y'][0], ring_output['ring_x'][0])
+    # print("starting y x: ", ring_output['ring_y_pix'][0], ring_output['ring_x_pix][0])
     original_num = b_mask[y_edge, x_edge]
     # print(y_edge, x_edge, original_num)
     # casting
@@ -418,10 +418,10 @@ def edge_recur(y_edge, x_edge, b_mask, base_inten, other_inten, edge_num, cast_n
     record_ring(y_edge, x_edge, ring_output, branch_data, base_inten, other_inten,
                 count, b_mask[y_edge, x_edge] == 254, close_flag)
 
-    if count > 1 and ((y_edge + 1 == ring_output['ring_y'][0] and x_edge == ring_output['ring_x'][0]) or
-                      (y_edge - 1 == ring_output['ring_y'][0] and x_edge == ring_output['ring_x'][0]) or
-                      (y_edge == ring_output['ring_y'][0] and x_edge + 1 == ring_output['ring_x'][0]) or
-                      (y_edge == ring_output['ring_y'][0] and x_edge - 1 == ring_output['ring_x'][0])):
+    if count > 1 and ((y_edge + 1 == ring_output['ring_y_pix'][0] and x_edge == ring_output['ring_x_pix'][0]) or
+                      (y_edge - 1 == ring_output['ring_y_pix'][0] and x_edge == ring_output['ring_x_pix'][0]) or
+                      (y_edge == ring_output['ring_y_pix'][0] and x_edge + 1 == ring_output['ring_x_pix'][0]) or
+                      (y_edge == ring_output['ring_y_pix'][0] and x_edge - 1 == ring_output['ring_x_pix'][0])):
         closed[0] = True
         # print(count, closed)
 
@@ -540,32 +540,32 @@ def rm_inner_casting(y, x, bmask, target):
 def record_ring(y_edge, x_edge, ring_output, branch_output, base_inten, other_inten, count, overlap_flag, close_flag):
     # check if ring is closed
     if not closed[0]:
-        if ring_output['ring_y'][count] != 0 and ring_output['ring_x'][count] != 0:
+        if ring_output['ring_y_pix'][count] != 0 and ring_output['ring_x_pix'][count] != 0:
             # print("branch detected!!!!!")
-            # print(ring_output['ring_y'][count], ring_output['ring_x'][count], ring_output['index'][count])
+            # print(ring_output['ring_y_pix'][count], ring_output['ring_x_pix][count], ring_output['index'][count])
             # print(y_edge, x_edge, count)
             branch_output['index'][count] = count
-            branch_output['ring_y'][count] = y_edge
-            branch_output['ring_x'][count] = x_edge
-            branch_output['length_x'][count] = count * PX_SIZE
+            branch_output['ring_y_pix'][count] = y_edge
+            branch_output['ring_x_pix'][count] = x_edge
+            branch_output['length_x_um'][count] = count * PX_SIZE
             branch_output[base_inten_key][count] = base_inten[y_edge,x_edge]
             # branch_output['contact_inten'][count] = other_inten
             branch_output['overlap'][count] = overlap_flag
 
             for ch_ind in other_ch_ind_list:
-                branch_output[CHANNELS[ch_ind] + '_inten'][count]  = other_inten[ch_ind][y_edge,x_edge]
+                branch_output[CHANNELS[ch_ind] + '_inten_raw'][count]  = other_inten[ch_ind][y_edge,x_edge]
             # if overlap_flag is True:
             #     branch_output['overlap'][count] = True
         else:
             ring_output['index'][count] = count
-            ring_output['ring_y'][count] = y_edge
-            ring_output['ring_x'][count] = x_edge
-            ring_output['length_x'][count] = count * PX_SIZE
+            ring_output['ring_y_pix'][count] = y_edge
+            ring_output['ring_x_pix'][count] = x_edge
+            ring_output['length_x_um'][count] = count * PX_SIZE
             ring_output[base_inten_key][count] = base_inten[y_edge,x_edge]
             # ring_output['contact_inten'][count] = other_inten
             ring_output['overlap'][count] = overlap_flag
             for ch_key in other_ch_ind_list:
-                ring_output[CHANNELS[ch_key] + '_inten'][count]  = other_inten[ch_key][y_edge,x_edge]
+                ring_output[CHANNELS[ch_key] + '_inten_raw'][count]  = other_inten[ch_key][y_edge,x_edge]
                 # print(other_inten[ch_key][y_edge,x_edge], ring_output[base_inten_key][count])
             # if overlap_flag is True:
             #     ring_output['overlap'][count] = True
@@ -588,22 +588,22 @@ def bk_sub_overflow_guard(image_data, base_bk_value, other_chs_bk_value):
     print("checking overflow...")
     base_min = image_data.select(base_inten_key).min().item()
 
-    image_data = image_data.with_columns(pl.col(base_inten_key).apply(lambda intensity: overflow_check(intensity, base_bk_value)).alias('base_overflow_' + str(int(base_bk_value))))
+    image_data = image_data.with_columns(pl.col(base_inten_key).apply(lambda intensity: overflow_check(intensity, base_bk_value)).alias(CHANNELS[B_CHANNEL] + '_inten_overflow_' + str(int(base_bk_value))))
     if BK_SUB:
         if base_min < base_bk_value:
             base_bk_value = base_min
         image_data = image_data.with_columns(
             pl.col(base_inten_key).apply(lambda intensity: intensity - base_bk_value).alias(
-                base_inten_key))
+                CHANNELS[B_CHANNEL] + '_inten_bkg_sub'))
 
     for ch_i, ch in enumerate(other_ch_ind_list):
-        ch_min = image_data.select(CHANNELS[key] + '_inten').min().item()
+        ch_min = image_data.select(CHANNELS[key] + '_inten_raw').min().item()
 
-        image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply(lambda intensity: overflow_check(intensity, other_chs_bk_value[ch_i])).alias(CHANNELS[key] + '_overflow_' + str(int(other_chs_bk_value[ch_i]))))
+        image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten_raw').apply(lambda intensity: overflow_check(intensity, other_chs_bk_value[ch_i])).alias(CHANNELS[key] + '_overflow_' + str(int(other_chs_bk_value[ch_i]))))
         if BK_SUB:
             if ch_min < other_chs_bk_value[ch_i]:
                 other_chs_bk_value[ch_i] = ch_min
-            image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten').apply(lambda intensity: intensity - other_chs_bk_value[ch_i]).alias(CHANNELS[key] + '_inten'))
+            image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten_raw').apply(lambda intensity: intensity - other_chs_bk_value[ch_i]).alias(CHANNELS[key] + '_inten_bkg_sub'))
 
     # image_data.write_csv(os.path.realpath('./image_test.csv'))
     return image_data
@@ -840,7 +840,7 @@ if __name__ == '__main__':
                 # ax_bk[2].set_title('threshold')
                 # ax_bk[2].imshow(threshold_binary)
                 # plt.show()
-                f.write('background for ' + CHANNELS[ch] + ': ' + str(bk_value_other) + '\n')
+                f.write('background for ' + CHANNELS[ch] + ': ' + str(bk_value_other[ch_i]) + '\n')
 
         # print(other_chs.keys())
         # view raw images and binary mask
@@ -931,7 +931,7 @@ if __name__ == '__main__':
         ring_data_image = None
         branch_data_image = None
 
-        base_inten_key = CHANNELS[B_CHANNEL] + '_inten'
+        base_inten_key = CHANNELS[B_CHANNEL] + '_inten_raw'
         # other_ch_names = [[CHANNELS[key]] for key in CHANNELS.keys()]
 
         # print(arr_cen)
@@ -953,15 +953,15 @@ if __name__ == '__main__':
                              'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
                              'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
                              'index': np.zeros((ring_len,), dtype=np.uint16),
-                             'ring_y': np.zeros((ring_len,), dtype=np.uint16),
-                             'ring_x': np.zeros((ring_len,), dtype=np.uint16),
-                             'length_x': np.zeros((ring_len,), dtype=np.float16),
+                             'ring_y_pix': np.zeros((ring_len,), dtype=np.uint16),
+                             'ring_x_pix': np.zeros((ring_len,), dtype=np.uint16),
+                             'length_x_um': np.zeros((ring_len,), dtype=np.float16),
                              'overlap': np.full((ring_len,), False, dtype=bool),
                              'closed': np.full((ring_len,), False, dtype=bool),
                              base_inten_key: np.zeros((ring_len,), dtype=np.uint16)}
 
                 for key in other_ch_ind_list:
-                    ring_data[CHANNELS[key]+'_inten'] = np.zeros((ring_len,), dtype=np.uint16)
+                    ring_data[CHANNELS[key]+'_inten_raw'] = np.zeros((ring_len,), dtype=np.uint16)
 
                 branch_data = copy.deepcopy(ring_data)
 
@@ -972,8 +972,8 @@ if __name__ == '__main__':
                 #     'object_id': np.full((ring_len,), row['object_id'], dtype=np.uint16),
                 #     'layer': np.full((ring_len,), t + 1, dtype=np.uint16),
                 #     'index': np.zeros((ring_len,), dtype=np.uint16),
-                #     'ring_y': np.zeros((ring_len,), dtype=np.uint16),
-                #     'ring_x': np.zeros((ring_len,), dtype=np.uint16),
+                #     'ring_y_pix': np.zeros((ring_len,), dtype=np.uint16),
+                #     'ring_x_pix: np.zeros((ring_len,), dtype=np.uint16),
                 #     # 'ring_inten': np.zeros((ring_len,), dtype=np.uint16),
                 #     # 'contact_inten': np.zeros((ring_len,), dtype=np.uint16),
                 #     'overlap': np.full((ring_len,), False, dtype=bool),
@@ -997,7 +997,7 @@ if __name__ == '__main__':
                     # print(start_last_layer.shape)
                     # print(start_last_layer)
                     try:
-                        y_Start = start_last_layer['ring_y'][0]
+                        y_Start = start_last_layer['ring_y_pix'][0]
                     except Exception as e:
                         print(e)
                         error_logging('high', str(e), 'problematic void',
@@ -1057,18 +1057,18 @@ if __name__ == '__main__':
                 for i_branch in reversed(range(len(branch_data['index']))):
                     dup_i = branch_data['index'][i_branch]
                     # overflow
-                    if (ring_data['ring_y'][dup_i + 1] == branch_data['ring_y'][i_branch] and (ring_data['ring_x'][dup_i + 1] + 1 == branch_data['ring_x'][i_branch] or ring_data['ring_x'][dup_i + 1] - 1 == branch_data['ring_x'][i_branch])) or\
-                        (ring_data['ring_x'][dup_i + 1] == branch_data['ring_x'][i_branch] and (
-                                    ring_data['ring_y'][dup_i + 1] + 1 == branch_data['ring_y'][i_branch] or
-                                    ring_data['ring_y'][dup_i + 1] - 1 == branch_data['ring_y'][i_branch])):
-                    # if (-1 <= int(ring_data['ring_y'][dup_i + 1]) - int(branch_data['ring_y'][i_branch]) <= 1) and (
-                    #         -1 <= int(ring_data['ring_x'][dup_i + 1]) - int(branch_data['ring_x'][i_branch]) <= 1):
+                    if (ring_data['ring_y_pix'][dup_i + 1] == branch_data['ring_y_pix'][i_branch] and (ring_data['ring_x_pix'][dup_i + 1] + 1 == branch_data['ring_x_pix'][i_branch] or ring_data['ring_x_pix'][dup_i + 1] - 1 == branch_data['ring_x_pix'][i_branch])) or\
+                        (ring_data['ring_x_pix'][dup_i + 1] == branch_data['ring_x_pix'][i_branch] and (
+                                    ring_data['ring_y_pix'][dup_i + 1] + 1 == branch_data['ring_y_pix'][i_branch] or
+                                    ring_data['ring_y_pix'][dup_i + 1] - 1 == branch_data['ring_y_pix'][i_branch])):
+                    # if (-1 <= int(ring_data['ring_y_pix'][dup_i + 1]) - int(branch_data['ring_y_pix'][i_branch]) <= 1) and (
+                    #         -1 <= int(ring_data['ring_x_pix][dup_i + 1]) - int(branch_data['ring_x_pix][i_branch]) <= 1):
                         print("swap branch data.....")
-                        # print(ring_data['ring_y'][dup_i + 1], ring_data['ring_x'][dup_i + 1],
-                        #       branch_data['ring_y'][i_branch], branch_data['ring_x'][i_branch])
-                        swap_list = ['ring_y','ring_x', base_inten_key]
+                        # print(ring_data['ring_y_pix'][dup_i + 1], ring_data['ring_x_pix][dup_i + 1],
+                        #       branch_data['ring_y_pix'][i_branch], branch_data['ring_x_pix][i_branch])
+                        swap_list = ['ring_y_pix','ring_x_pix', base_inten_key]
                         for ch_key in other_ch_ind_list:
-                            swap_list.append(CHANNELS[ch_key] + '_inten')
+                            swap_list.append(CHANNELS[ch_key] + '_inten_raw')
 
                         temp = {}
                         # print(swap_list)
@@ -1085,8 +1085,8 @@ if __name__ == '__main__':
                     error_logging('low', 'not in exception', 'open ring',
                                   raw_file_name + "_layer" + str(t) + "_id" + str(row['object_id']))
 
-                ring_data = pl.DataFrame(ring_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
-                branch_data = pl.DataFrame(branch_data).filter((pl.col('ring_y') != 0) & (pl.col('ring_y') != 0))
+                ring_data = pl.DataFrame(ring_data).filter((pl.col('ring_y_pix') != 0) & (pl.col('ring_y_pix') != 0))
+                branch_data = pl.DataFrame(branch_data).filter((pl.col('ring_y_pix') != 0) & (pl.col('ring_y_pix') != 0))
                 # print(ring_data, branch_data)
                 if ring_data_image is None:
                     ring_data_image = ring_data.clone()
@@ -1143,7 +1143,7 @@ if __name__ == '__main__':
                 branch_data_project.write_csv(os.path.realpath(output_path + '/branch_' + timestamp + '.csv'))
             except Exception as e:
                 print(e)
-                error_logging('high', str(e), 'empty datatable due to excessive erosion', raw_file_name + ".tif")
+                error_logging('high', str(e), 'empty datatable(due to excessive erosion?)', raw_file_name + ".tif")
 
             if SHOW_PLOTS:
                 map_layer[t] = edge_copy
@@ -1175,13 +1175,24 @@ if __name__ == '__main__':
         plot_y_max_other_chs = plot_y_max_other_chs//10 + plot_y_max_other_chs
         # input("press enter")
 
+        base_key = None
+        other_ch_keys = []
+        if BK_SUB:
+            base_key = CHANNELS[B_CHANNEL] + '_inten_bkg_sub'
+            for ch_key in other_ch_ind_list:
+               other_ch_keys.append(CHANNELS[ch_key] + '_inten_bkg_sub')
+        else:
+            base_key = CHANNELS[B_CHANNEL] + '_inten_raw'
+            for ch_key in other_ch_ind_list:
+                other_ch_keys.append(CHANNELS[ch_key] + '_inten_raw')
+
         plot_data_void = {
             'overlap': list,
-            base_inten_key: list
+            base_key: list
         }
 
-        for ch_key in other_ch_ind_list:
-            plot_data_void[CHANNELS[ch_key] + '_inten'] = []
+        for ch_key in other_ch_keys:
+            plot_data_void[ch_key] = []
         plot_data = [[copy.deepcopy(plot_data_void) for _ in range(RING_THICKNESS + 1)] for _ in range(arr_cen.shape[0])]
 
         # swap overlapped pixels with NaN
@@ -1209,11 +1220,11 @@ if __name__ == '__main__':
                     .filter((pl.col("overlap") == 0) & (pl.col("object_id") == row["object_id"])) \
                     .groupby("layer", maintain_order=True).all()
 
-            ring_data = layer_data[base_inten_key].to_list()
+            ring_data = layer_data[base_key].to_list()
             other_chs_plot_data = {}
-            for k in other_ch_key_list:
+            for k in other_ch_keys:
                 other_chs_plot_data[k] = layer_data[k].to_list()
-            length_data = layer_data["length_x"].to_list()
+            length_data = layer_data["length_x_um"].to_list()
             overlap_data = layer_data["overlap"].to_list()
 
             other_chs_inter = {}
@@ -1230,16 +1241,16 @@ if __name__ == '__main__':
                 normalized_data_ring['layer'] = np.full((X_NORMALIZE,), x+1)
                 ring_inter = interpolate.interp1d(length_data[x], ring_data[x])
 
-                for k in other_ch_key_list:
+                for k in other_ch_keys:
                     other_chs_inter[k] = interpolate.interp1d(length_data[x], other_chs_plot_data[k][x])
                 new_x = np.linspace(length_data[x][0], length_data[x][-1], X_NORMALIZE)
-                normalized_data_ring['length'] = new_x
-                plot_data[i][x]['length'] = new_x
-                plot_data[i][x][base_inten_key] = ring_inter(new_x)
+                normalized_data_ring['length_um'] = new_x
+                plot_data[i][x]['length_um'] = new_x
+                plot_data[i][x][base_key] = ring_inter(new_x)
                 # normalized_data_ring[base_inten_key] = ring_inter(new_x)
-                normalized_data_ring[base_inten_key] = copy.deepcopy(plot_data[i][x][base_inten_key])
+                normalized_data_ring[base_key] = copy.deepcopy(plot_data[i][x][base_key])
                 # plot_data[i][x]['contact_inten'] = contact_inter(new_x)
-                for k in other_ch_key_list:
+                for k in other_ch_keys:
                     plot_data[i][x][k] = other_chs_inter[k](new_x)
                     normalized_data_ring[k] = other_chs_inter[k](new_x)
 
@@ -1248,16 +1259,16 @@ if __name__ == '__main__':
                     rdl_aver_data_img = {}
                     # initialize first compression layer
                     if x == RDL_AVER_START-1:
-                        plot_data[i][-1][base_inten_key] = np.array(plot_data[i][x][base_inten_key])
+                        plot_data[i][-1][base_key] = np.array(plot_data[i][x][base_key])
                         # plot_data[i][-1]['contact_inten'] = np.array(plot_data[i][x]['contact_inten'])
-                        for k in other_ch_key_list:
+                        for k in other_ch_keys:
                             plot_data[i][-1][k] = np.array(plot_data[i][x][k])
                     else:
-                        plot_data[i][-1][base_inten_key] = np.add(plot_data[i][-1][base_inten_key],
-                                                                np.array(plot_data[i][x][base_inten_key]))
+                        plot_data[i][-1][base_key] = np.add(plot_data[i][-1][base_key],
+                                                                np.array(plot_data[i][x][base_key]))
                     # plot_data[i][-1]['contact_inten'] = np.add(plot_data[i][-1]['contact_inten'],
                     #                                            np.array(plot_data[i][x]['contact_inten']))
-                        for k in other_ch_key_list:
+                        for k in other_ch_keys:
                             plot_data[i][-1][k] = np.add(plot_data[i][-1][k],
                                                                       np.array(plot_data[i][x][k]))
                     # print(np.nansum(plot_data[i][-1]['ring_inten']), np.nansum(plot_data[i][-1]['contact_inten']))
@@ -1275,14 +1286,15 @@ if __name__ == '__main__':
                         #     normalized_data_ring[k + '_rdl_aver'] = plot_data[i][-1][k]
                         rdl_aver_data_img['object_id'] = np.full((X_NORMALIZE,), row['object_id'])
                         rdl_aver_data_img['layer'] = np.full((X_NORMALIZE,), x+1)
-                        rdl_aver_data_img['length'] = plot_data[i][RDL_AVER_END - 1]['length']
-                        rdl_aver_data_img[base_inten_key + '_sum'] = copy.deepcopy(plot_data[i][-1][base_inten_key])
-                        plot_data[i][-1][base_inten_key] /= (RDL_AVER_END - RDL_AVER_START + 1)
-                        plot_data[i][-1]['length'] = plot_data[i][RDL_AVER_END - 1]['length']
-                        rdl_aver_data_img[base_inten_key + '_rdl_aver'] = plot_data[i][-1][base_inten_key]
+                        rdl_aver_data_img['length_um'] = plot_data[i][RDL_AVER_END - 1]['length_um']
+                        rdl_aver_data_img[base_key + '_sum'] = copy.deepcopy(plot_data[i][-1][base_key])
+                        plot_data[i][-1][base_key] /= (RDL_AVER_END - RDL_AVER_START + 1)
+                        rdl_aver_data_img[base_key + '_rdl_aver'] = plot_data[i][-1][base_key]
+                        plot_data[i][-1]['length_um'] = plot_data[i][RDL_AVER_END - 1]['length_um']
+
 
                         # plot_data[i][-1]['contact_inten'] /= (RDL_AVER_END - RDL_AVER_START + 1)
-                        for k in other_ch_key_list:
+                        for k in other_ch_keys:
                             rdl_aver_data_img[k + '_sum'] = copy.deepcopy(plot_data[i][-1][k])
                             plot_data[i][-1][k] /= (RDL_AVER_END - RDL_AVER_START + 1)
                             rdl_aver_data_img[k + '_rdl_aver'] = plot_data[i][-1][k]
@@ -1296,9 +1308,9 @@ if __name__ == '__main__':
                 # if no compression, copy the value of last layer for compression layer
                 if RDL_AVER_END <= RDL_AVER_START:
                     # print('no compression')
-                    plot_data[i][-1][base_inten_key] = np.full((X_NORMALIZE,), np.nan)
+                    plot_data[i][-1][base_key] = np.full((X_NORMALIZE,), np.nan)
                     # plot_data[i][-1]['contact_inten'] = np.full((X_NORMALIZE,), np.nan)
-                    for k in other_ch_key_list:
+                    for k in other_ch_keys:
                         plot_data[i][-1][k] = np.full((X_NORMALIZE,), np.nan)
 
                 if normalized_data_project is None:
@@ -1394,12 +1406,12 @@ if __name__ == '__main__':
         #     axfreq_droplet = plt.axes([1, 0.95, 0.1, 0.01])  # right, top, length, width
         #     slider_droplet = Slider(axfreq_droplet, label="", valmin=i, valmax=i, valstep=1)
         #     ax_twin = ax2[table_row, table_col].twinx()
-        #     controls_plot[i][0] = iplt.plot(show_ring_plots, label=base_inten_key.replace('_inten',''), layer=slider_layer, droplet_index=slider_droplet,
+        #     controls_plot[i][0] = iplt.plot(show_ring_plots, label=base_inten_key.replace('_inten_raw',''), layer=slider_layer, droplet_index=slider_droplet,
         #                                     ax=ax2[table_row, table_col])
         #     for k_i, k in enumerate(other_ch_key_list):
         #         axfreq_ch = plt.axes([1, 0.95, 0.1, 0.01])  # right, top, length, width
         #         slider_ch = Slider(axfreq_ch, label="", valmin=k_i, valmax=k_i, valstep=1)
-        #         controls_plot[i][1] = iplt.plot(show_other_chs_plots, label=k.replace('_inten',''), color=color_list[k_i%9], layer=slider_layer,
+        #         controls_plot[i][1] = iplt.plot(show_other_chs_plots, label=k.replace('_inten_raw',''), color=color_list[k_i%9], layer=slider_layer,
         #                                         droplet_index=slider_droplet, channel=slider_ch, ax=ax_twin)
         #
         #     ax2[table_row, table_col].set_ylim([0, plot_y_max_droplet])
@@ -1445,21 +1457,21 @@ if __name__ == '__main__':
                     void_row = arr_cen.row(i)
                     # ax_layer[table_row, table_col].xticks(np.linspace(plot_data[i][x]['length'][0], plot_data[i][x]['length'][-1], num=5))
                     ax_layer_twin = ax_layer[table_row, table_col].twinx()
-                    ax_layer[table_row, table_col].plot(plot_data[i][x]['length'], plot_data[i][x][base_inten_key], label=base_inten_key.replace('_inten',''))
+                    ax_layer[table_row, table_col].plot(plot_data[i][x]['length_um'], plot_data[i][x][base_key], label=CHANNELS[B_CHANNEL])
                     ax_layer[table_row, table_col].tick_params(axis="x", labelbottom=True, direction="in", pad=3)
 
                     ax_layer[table_row, table_col].set_xticks(
-                        np.linspace(plot_data[i][x]['length'][0], plot_data[i][x]['length'][-1], num=5))
-                    x_padding = plot_data[i][x]['length'][-1]/10
-                    ax_layer[table_row, table_col].set_xlim([0-x_padding, plot_data[i][x]['length'][-1]+x_padding])
+                        np.linspace(plot_data[i][x]['length_um'][0], plot_data[i][x]['length_um'][-1], num=5))
+                    x_padding = plot_data[i][x]['length_um'][-1]/10
+                    ax_layer[table_row, table_col].set_xlim([0-x_padding, plot_data[i][x]['length_um'][-1]+x_padding])
                     ax_layer[table_row, table_col].set_yticks(np.linspace(0, plot_y_max_droplet, num=4))
                     ax_layer[table_row, table_col].set_ylim([0, plot_y_max_droplet])
                     ax_layer[table_row, table_col].set_title(f"object_id: {void_row[0]}", y=1.0, pad=-15)
                     ax_layer[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
 
                     # ax_layer_twin.plot(plot_data[i][x]['contact_inten'], label="FABCCON", color="red")
-                    for k_i, k in enumerate(other_ch_key_list):
-                        ax_layer_twin.plot(plot_data[i][x]['length'], plot_data[i][x][k], label=k.replace('_inten',''), color=color_list[k_i%9])
+                    for k_i, k in enumerate(other_ch_keys):
+                        ax_layer_twin.plot(plot_data[i][x]['length_um'], plot_data[i][x][k], label=k.split('_')[0], color=color_list[k_i%9])
 
                     # ax_layer[table_row, table_col].set_xlabel('distance (px)')
                     if i == c - 1:

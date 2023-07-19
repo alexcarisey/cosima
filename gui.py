@@ -142,18 +142,16 @@ class App(tk.Tk):
             # part.show_message('Please enter a valid email', 'red')
 
         def validate_float(value):
-            """
-            Validat the email entry
-            :param value:
-            :return:
-            """
-
             if re.fullmatch('^[1-9]([0-9]*\.?[0-9]+)?|^0\.[0-9]+', value) is None:
-                print(value)
+                form_complete.set(value=False)
+                login_button['state'] = tk.DISABLED
                 return False
 
             # show_message()
-            return True
+            else:
+                form_complete.set(value=True)
+                login_button['state'] = tk.NORMAL
+                return True
 
         def on_invalid_float():
             """
@@ -185,7 +183,7 @@ class App(tk.Tk):
         ch_info = {
             1: '',
         }
-
+        form_complete = tk.BooleanVar(self, value=False)
         folder_path = tk.StringVar(self, value=r'./input')
         erode_thickness = tk.IntVar(self, value=0)
         ring_thickness = tk.IntVar(self, value=1)
@@ -200,7 +198,7 @@ class App(tk.Tk):
         rdl_aver = tk.BooleanVar(self, value=True)
         ch_base = tk.IntVar(self, value=1)
         ch_name = tk.StringVar(self)
-        px_size = tk.DoubleVar(self, value=0.117)
+        px_size = tk.DoubleVar(self, value=0.10825)
 
         # heading
         heading = ttk.Label(self, text='Parameters Setup', style='Heading.TLabel')
@@ -373,7 +371,7 @@ class App(tk.Tk):
         ch_base_opt.grid(column=0, row=81, sticky=tk.E, **paddings)
 
         # pixel size entry
-        px_size_lb = ttk.Label(self, text="Pixel Size:")
+        px_size_lb = ttk.Label(self, text="um/pixel:")
         px_size_lb.grid(column=0, row=85, columnspan=1, sticky=tk.W, **paddings)
         px_size_entry = ttk.Entry(self, textvariable=px_size, )
         vcmd_f = (px_size_entry.register(validate_float), '%P')
@@ -386,7 +384,7 @@ class App(tk.Tk):
         err_msg_lb.grid(column=0, row=89, columnspan=3, sticky=tk.W, **paddings)
 
         # run button
-        login_button = ttk.Button(self, text="Run", command=exit_gui)
+        login_button = ttk.Button(self, text="Run", command=exit_gui, state=tk.DISABLED)
         login_button.grid(column=2, row=99, sticky=tk.E, **paddings)
 
         # configure style
