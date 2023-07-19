@@ -53,7 +53,7 @@ color_list = plt.rcParams['axes.prop_cycle'].by_key()['color'][1:]
 WALKER_MAX = 253
 PX_SIZE = 0.108
 X_NORMALIZE = 800
-BK_SUB, SHOW_OVERLAP = True, True
+BK_SUB, SHOW_OVERLAP = False, True
 RING_THICKNESS = 5
 ERODE_THICKNESS = 1
 INPUT_PATH = os.path.realpath(r'./input')
@@ -1156,7 +1156,8 @@ if __name__ == '__main__':
             t += 1
 
         # safe guard for overflow
-        ring_data_image = bk_sub_overflow_guard(ring_data_image, bk_value, bk_value_other)
+        if BK_SUB:
+            ring_data_image = bk_sub_overflow_guard(ring_data_image, bk_value, bk_value_other)
         # print(ring_data_image.head())
         try:
             ring_data_image.drop('image').write_csv(os.path.realpath(output_path_img+'/'+raw_file_name+'_'+ timestamp + '.csv'))
