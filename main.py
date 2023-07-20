@@ -13,6 +13,8 @@ from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
 import mpl_interactions.ipyplot as iplt
 from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageFont
 import shutil
 from scipy import interpolate
 from skimage.filters import threshold_mean
@@ -60,7 +62,7 @@ INPUT_PATH = os.path.realpath(r'./input')
 RDL_AVER = True
 RDL_AVER_START = 1
 RDL_AVER_END = RING_THICKNESS
-SHOW_PLOTS = False
+SHOW_PLOTS = True
 CHANNELS = {1:'halo', 2:'fabccon'}
 B_CHANNEL = 1
 # if len(sys.argv) == 1:
@@ -316,7 +318,7 @@ def gen_outline(y, x, bmap, void_i):
 def gen_outline_bmask(bmask):
     bmask[bmask == 255] = 1
     arr_cen_copy = arr_cen.clone()
-    void_edge = []
+    void_edge = [0 for _ in range(arr_cen_copy.shape[0])]
     for void_i, void in enumerate(arr_cen.iter_rows(named=True)):
         void_x = int(round(void['Object Center_0'], 0))
         void_y = int(round(void['Object Center_1'], 0))
@@ -344,7 +346,7 @@ def gen_outline_bmask(bmask):
                     break
             # print(erode_val, e_val + 2)
             bmask[bmask == (e_val + 2)] = 1
-
+        # print(void['object_id'], void_y, void_x)
         if bmask[void_y, void_x] != 0:
             try:
                 gen_outline(void_y, void_x, bmask, void_i)
@@ -355,9 +357,16 @@ def gen_outline_bmask(bmask):
                               raw_file_name + "_id" + str(void['object_id']))
                 arr_cen_copy = arr_cen_copy.filter(pl.col("object_id") != void['object_id'])
                 continue
-            void_edge.append(255 + void_i * 2)
+            # void_edge.append(255 + void_i * 2)
+            void_edge[void_i] = 255 + void_i * 2
+        if void_edge[void_i] == 0:
+            error_logging('low', 'not in exception', 'center could be hollowed',
+                          raw_file_name + "_id" + str(void['object_id']))
+            # arr_cen_copy.drop(void_i)
 
     arr_cen_copy = arr_cen_copy.with_columns(pl.Series(name="init_edge", values=void_edge))
+    arr_cen_copy = arr_cen_copy.filter(pl.col('init_edge') != 0)
+
     # print(arr_cen_copy)
     bmask[bmask == 2] = 0
     # print(arr_cen_copy.select(pl.col('object_id')), erased, arr_cen.select(pl.col('object_id')))
@@ -725,11 +734,14 @@ if __name__ == '__main__':
             arr_bmask = np.array(map_bmask).astype(np.uint16, casting="same_kind")
             edge_copy = arr_bmask.copy()
             edge_copy[edge_copy == 2] = 0
+            # print(arr_cen.shape)
             arr_cen = clear_border_vicinity(arr_cen, RING_THICKNESS+2, edge_copy.shape)
+            # print(arr_cen.shape)
             # plt.imshow(edge_copy)
             # plt.show()
 
             arr_cen = gen_outline_bmask(edge_copy)
+            # print(arr_cen.shape)
             f.write('voids after erosion: ' + str(arr_cen.shape[0]) + '\n')
             if len(arr_cen) == 0:
                 plt.imshow(edge_copy)
@@ -746,6 +758,7 @@ if __name__ == '__main__':
         # load droplet intensity
         try:
             print(raw_file_name)
+            shutil.copy(os.path.realpath(INPUT_PATH + '/' + raw_file_name + ".tif"), output_path_img)
             map_droplet = Image.open(os.path.realpath(INPUT_PATH + '/' + raw_file_name + ".tif"))
             base_ch = np.array(map_droplet)
             base_raw = base_ch.copy()
@@ -770,6 +783,7 @@ if __name__ == '__main__':
             if int(ch) != B_CHANNEL:
                 try:
                     # print(os.path.realpath(contact_path + '/' + raw_file_name + ".tif"))
+                    shutil.copy(os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace("_Ch"+str(B_CHANNEL), "_Ch" + str(ch)) + ".tif"), output_path_img)
                     map_inten = Image.open(
                         os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace("_Ch"+str(B_CHANNEL), "_Ch" + str(ch)) + ".tif"))
                     other_chs[ch] = np.array(map_inten)
@@ -889,6 +903,19 @@ if __name__ == '__main__':
 
             plt.draw()
 
+        # create an image layer with object id
+        id_layer = Image.new(mode="RGBA", size=arr_bmask.shape)
+        id_layer_draw = ImageDraw.Draw(id_layer)
+
+        for row_cen in arr_cen.iter_rows(named=True):
+            id_layer_draw.text((row_cen['Object Center_0'], row_cen['Object Center_1']), str(row_cen['object_id']), fill=(255,0,0))
+        # Display edited image
+        # id_layer.show()
+        # map_bmask.paste(id_layer, (0, 0), mask=id_layer)
+        # map_bmask.show()
+
+        # Save the edited image
+        id_layer.save(output_path_img + '/' + raw_file_name + "_id_layer.tif")
         t = 0
 
         # # subtract background intensity
@@ -1438,7 +1465,10 @@ if __name__ == '__main__':
         # =========================================================== interactive intensity plots by layer ====================================================
 
         c = int(math.ceil(np.sqrt(arr_cen.shape[0])))
-        r = int(arr_cen.shape[0] / c + 1)
+        if arr_cen.shape[0] % c == 0:
+            r = int(arr_cen.shape[0] / c)
+        else:
+            r = int(arr_cen.shape[0] / c+1)
         for x in range(RING_THICKNESS+1):
             if (RDL_AVER == 0 and x == RING_THICKNESS) or (RING_THICKNESS == 1 and x == RING_THICKNESS):
                 break

@@ -384,7 +384,7 @@ class App(tk.Tk):
         err_msg_lb.grid(column=0, row=89, columnspan=3, sticky=tk.W, **paddings)
 
         # run button
-        login_button = ttk.Button(self, text="Run", command=exit_gui, state=tk.DISABLED)
+        login_button = ttk.Button(self, text="Run", command=exit_gui)
         login_button.grid(column=2, row=99, sticky=tk.E, **paddings)
 
         # configure style
