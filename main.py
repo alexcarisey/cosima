@@ -711,6 +711,8 @@ if __name__ == '__main__':
         raw_file_name = item['file'].replace('_table', '')
         output_path_img = os.path.realpath("./output/output_" + timestamp + '/' + raw_file_name)
         os.makedirs(output_path_img)
+        output_path_img_layers = os.path.realpath("./output/output_" + timestamp + '/' + raw_file_name + '/image_layers')
+        os.makedirs(output_path_img_layers)
         f.write('=====================================================================\n')
         f.write('file:' + raw_file_name + '\n')
         # lazy load centroids table
@@ -758,7 +760,7 @@ if __name__ == '__main__':
         # load droplet intensity
         try:
             print(raw_file_name)
-            shutil.copy(os.path.realpath(INPUT_PATH + '/' + raw_file_name + ".tif"), output_path_img)
+            shutil.copy(os.path.realpath(INPUT_PATH + '/' + raw_file_name + ".tif"), output_path_img_layers)
             map_droplet = Image.open(os.path.realpath(INPUT_PATH + '/' + raw_file_name + ".tif"))
             base_ch = np.array(map_droplet)
             base_raw = base_ch.copy()
@@ -783,7 +785,7 @@ if __name__ == '__main__':
             if int(ch) != B_CHANNEL:
                 try:
                     # print(os.path.realpath(contact_path + '/' + raw_file_name + ".tif"))
-                    shutil.copy(os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace("_Ch"+str(B_CHANNEL), "_Ch" + str(ch)) + ".tif"), output_path_img)
+                    shutil.copy(os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace("_Ch"+str(B_CHANNEL), "_Ch" + str(ch)) + ".tif"), output_path_img_layers)
                     map_inten = Image.open(
                         os.path.realpath(INPUT_PATH + '/' + raw_file_name.replace("_Ch"+str(B_CHANNEL), "_Ch" + str(ch)) + ".tif"))
                     other_chs[ch] = np.array(map_inten)
@@ -915,7 +917,7 @@ if __name__ == '__main__':
         # map_bmask.show()
 
         # Save the edited image
-        id_layer.save(output_path_img + '/' + raw_file_name + "_id_layer.tif")
+        id_layer.save(output_path_img_layers + '/' + raw_file_name + "_id_layer.tif")
         t = 0
 
         # # subtract background intensity
@@ -1481,7 +1483,7 @@ if __name__ == '__main__':
             fig_layer.text(0.5, 0.02, 'length(um)', ha='center')
             fig_layer.text(0.02, 0.5, 'Raw intensity', va='center', rotation='vertical')
 
-            fig_layer.subplots_adjust(hspace=0.1, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
+            fig_layer.subplots_adjust(hspace=0.15, wspace=0, top=0.95, bottom=0.05, right=0.95, left=0.05)
             # for i, row in enumerate(arr_cen.iter_rows(named=True)):
             for i in range(c*r):
                 table_row = i // c
@@ -1492,7 +1494,7 @@ if __name__ == '__main__':
                     ax_layer_twin = ax_layer[table_row, table_col].twinx()
                     ax_layer[table_row, table_col].plot(plot_data[i][x]['length_um'], plot_data[i][x][base_key], label=CHANNELS[B_CHANNEL])
                     ax_layer[table_row, table_col].tick_params(axis="x", labelbottom=True, direction="in", pad=3)
-
+                    ax_layer[table_row, table_col].set_axisbelow(False)
                     ax_layer[table_row, table_col].set_xticks(
                         np.linspace(plot_data[i][x]['length_um'][0], plot_data[i][x]['length_um'][-1], num=5))
                     x_padding = plot_data[i][x]['length_um'][-1]/10
