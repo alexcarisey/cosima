@@ -600,6 +600,7 @@ def bk_sub_overflow_guard(image_data, base_bk_value, other_chs_bk_value):
     image_data = image_data.with_columns(pl.col(base_inten_key).apply(lambda intensity: overflow_check(intensity, base_bk_value)).alias(CHANNELS[B_CHANNEL] + '_inten_overflow_' + str(int(base_bk_value))))
     if BK_SUB:
         if base_min < base_bk_value:
+            f.write(CHANNELS[B_CHANNEL] + 'bkg value has been adjusted due to some extremely low intensity on the ring' '\n')
             base_bk_value = base_min
         image_data = image_data.with_columns(
             pl.col(base_inten_key).apply(lambda intensity: intensity - base_bk_value).alias(
@@ -611,6 +612,8 @@ def bk_sub_overflow_guard(image_data, base_bk_value, other_chs_bk_value):
         image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten_raw').apply(lambda intensity: overflow_check(intensity, other_chs_bk_value[ch_i])).alias(CHANNELS[key] + '_overflow_' + str(int(other_chs_bk_value[ch_i]))))
         if BK_SUB:
             if ch_min < other_chs_bk_value[ch_i]:
+                f.write(CHANNELS[
+                            key] + 'bkg value has been adjusted due to some extremely low intensity on the ring' '\n')
                 other_chs_bk_value[ch_i] = ch_min
             image_data = image_data.with_columns(pl.col(CHANNELS[key] + '_inten_raw').apply(lambda intensity: intensity - other_chs_bk_value[ch_i]).alias(CHANNELS[key] + '_inten_bkg_sub'))
 
