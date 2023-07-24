@@ -62,7 +62,7 @@ INPUT_PATH = os.path.realpath(r'./input')
 RDL_AVER = True
 RDL_AVER_START = 1
 RDL_AVER_END = RING_THICKNESS
-SHOW_PLOTS = True
+SHOW_PLOTS = False
 CHANNELS = {1:'halo', 2:'fabccon'}
 B_CHANNEL = 1
 # if len(sys.argv) == 1:
@@ -1470,10 +1470,12 @@ if __name__ == '__main__':
         # =========================================================== interactive intensity plots by layer ====================================================
 
         c = int(math.ceil(np.sqrt(arr_cen.shape[0])))
+
         if arr_cen.shape[0] % c == 0:
             r = int(arr_cen.shape[0] / c)
         else:
             r = int(arr_cen.shape[0] / c+1)
+        # print(c,r)
         for x in range(RING_THICKNESS+1):
             if (RDL_AVER == 0 and x == RING_THICKNESS) or (RING_THICKNESS == 1 and x == RING_THICKNESS):
                 break
@@ -1491,43 +1493,62 @@ if __name__ == '__main__':
             for i in range(c*r):
                 table_row = i // c
                 table_col = i % c
+                # print(table_row,table_col)
                 if i < arr_cen.shape[0]:
                     void_row = arr_cen.row(i)
-                    # ax_layer[table_row, table_col].xticks(np.linspace(plot_data[i][x]['length'][0], plot_data[i][x]['length'][-1], num=5))
-                    ax_layer_twin = ax_layer[table_row, table_col].twinx()
-                    ax_layer[table_row, table_col].plot(plot_data[i][x]['length_um'], plot_data[i][x][base_key], label=CHANNELS[B_CHANNEL])
-                    ax_layer[table_row, table_col].tick_params(axis="x", labelbottom=True, direction="in", pad=3)
-                    ax_layer[table_row, table_col].set_axisbelow(False)
-                    ax_layer[table_row, table_col].set_xticks(
+                    if c == arr_cen.shape[0] and arr_cen.shape[0] != 1:
+                        ax_layer_cur = ax_layer[table_col]
+                        ax_layer_twin = ax_layer[table_col].twinx()
+                    elif arr_cen.shape[0] == 1:
+                        ax_layer_cur = ax_layer
+                        ax_layer_twin = ax_layer.twinx()
+                    else:
+                        ax_layer_cur = ax_layer[table_row, table_col]
+                        ax_layer_twin = ax_layer[table_row, table_col].twinx()
+                    # ax_layer_cur.xticks(np.linspace(plot_data[i][x]['length'][0], plot_data[i][x]['length'][-1], num=5))
+                    # ax_layer_twin = ax_layer_cur.twinx()
+                    ax_layer_cur.plot(plot_data[i][x]['length_um'], plot_data[i][x][base_key], label=CHANNELS[B_CHANNEL])
+                    ax_layer_cur.tick_params(axis="x", labelbottom=True, direction="in", pad=3)
+                    ax_layer_cur.set_axisbelow(False)
+                    ax_layer_cur.set_xticks(
                         np.linspace(plot_data[i][x]['length_um'][0], plot_data[i][x]['length_um'][-1], num=5))
                     x_padding = plot_data[i][x]['length_um'][-1]/10
-                    ax_layer[table_row, table_col].set_xlim([0-x_padding, plot_data[i][x]['length_um'][-1]+x_padding])
-                    ax_layer[table_row, table_col].set_yticks(np.linspace(0, plot_y_max_droplet, num=4))
-                    ax_layer[table_row, table_col].set_ylim([0, plot_y_max_droplet])
-                    ax_layer[table_row, table_col].set_title(f"object_id: {void_row[0]}", y=1.0, pad=-15)
-                    ax_layer[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
+                    ax_layer_cur.set_xlim([0-x_padding, plot_data[i][x]['length_um'][-1]+x_padding])
+                    ax_layer_cur.set_yticks(np.linspace(0, plot_y_max_droplet, num=4))
+                    ax_layer_cur.set_ylim([0, plot_y_max_droplet])
+                    ax_layer_cur.set_title(f"object_id: {void_row[0]}", y=1.0, pad=-15)
+                    ax_layer_cur.tick_params(axis="y", labelcolor="#1f77b4")
 
                     # ax_layer_twin.plot(plot_data[i][x]['contact_inten'], label="FABCCON", color="red")
                     for k_i, k in enumerate(other_ch_keys):
                         ax_layer_twin.plot(plot_data[i][x]['length_um'], plot_data[i][x][k], label=k.split('_')[0], color=color_list[k_i%9])
 
-                    # ax_layer[table_row, table_col].set_xlabel('distance (px)')
+                    # ax_layer_cur.set_xlabel('distance (px)')
                     if i == c - 1:
-                        ax_layer[table_row, table_col].legend(loc="upper left")
+                        ax_layer_cur.legend(loc="upper left")
                         ax_layer_twin.legend(loc='upper right')
                         # fig.legend()
                     # if table_col == 0:
-                        # ax_layer[table_row, table_col].set_ylabel('raw intensity')
+                        # ax_layer_cur.set_ylabel('raw intensity')
                     ax_layer_twin.set_yticks(np.linspace(0, plot_y_max_other_chs, num=4))
                     ax_layer_twin.set_ylim([0, plot_y_max_other_chs])
-                    ax_layer[table_row, table_col].tick_params(axis="y", labelcolor="#1f77b4")
+                    ax_layer_cur.tick_params(axis="y", labelcolor="#1f77b4")
                     if table_col != c - 1:
                         ax_layer_twin.yaxis.set_visible(False)
                     else:
                         ax_layer_twin.tick_params(axis="y", labelcolor="red")
 
                 else:
-                    ax_layer[table_row, table_col].xaxis.set_visible(False)
+                    table_row = i // c
+                    table_col = i % c
+                    if c == arr_cen.shape[0] and arr_cen.shape[0] != 1:
+                        ax_layer_cur = ax_layer[table_col]
+                    elif arr_cen.shape[0]:
+                        ax_layer_cur = ax_layer
+                    else:
+                        ax_layer_cur = ax_layer[table_row, table_col]
+
+                    ax_layer_cur.xaxis.set_visible(False)
 
             # if not SHOW_PLOTS:
             #     plt.savefig(os.path.realpath(output_path_img + '/' + raw_file_name + '_layer' + str(x+1) + '_' + timestamp + '.png'))
