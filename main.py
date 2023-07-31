@@ -1539,15 +1539,16 @@ if __name__ == '__main__':
                         ax_layer_twin.tick_params(axis="y", labelcolor="red")
 
                 else:
-                    table_row = i // c
-                    table_col = i % c
                     if c == arr_cen.shape[0] and arr_cen.shape[0] != 1:
                         ax_layer_cur = ax_layer[table_col]
-                    elif arr_cen.shape[0]:
+                        # ax_layer[table_col].xaxis.set_visible(False)
+                    elif arr_cen.shape[0] == 1:
+                        # ax_layer.xaxis.set_visible(False)
                         ax_layer_cur = ax_layer
                     else:
                         ax_layer_cur = ax_layer[table_row, table_col]
-
+                        # ax_layer[table_row, table_col].xaxis.set_visible(False)
+                    # print(ax_layer[table_row, table_col])
                     ax_layer_cur.xaxis.set_visible(False)
 
             # if not SHOW_PLOTS:
