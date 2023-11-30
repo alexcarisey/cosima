@@ -23,7 +23,8 @@ class App(tk.Tk):
                                  "SHOW_OVERLAP": show_overlap.get(),
                                  "SHOW_PLOTS": show_plots.get(),
                                  "CHANNELS": ch_info,
-                                 "B_CHANNEL": ch_base.get()
+                                 "B_CHANNEL": ch_base.get(),
+                                 "PX_SIZE": px_size.get()
                                  }
             print(str(parameter_setting))
 
@@ -140,9 +141,27 @@ class App(tk.Tk):
             ch_name.set('Only digits/letters')
             # part.show_message('Please enter a valid email', 'red')
 
+        def validate_float(value):
+            if re.fullmatch('^[1-9]([0-9]*\.?[0-9]+)?|^0\.[0-9]+', value) is None:
+                form_complete.set(value=False)
+                login_button['state'] = tk.DISABLED
+                return False
 
+            # show_message()
+            else:
+                form_complete.set(value=True)
+                login_button['state'] = tk.NORMAL
+                return True
 
-        self.geometry('450x480')
+        def on_invalid_float():
+            """
+            Show the error message if the data is not valid
+            :return:
+            """
+            px_size.set('Wrong format')
+            # part.show_message('Please enter a valid email', 'red')
+
+        self.geometry('450x510')
         self.resizable(0, 0)
         self.title('COSIMA')
 
@@ -154,7 +173,7 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=3)
 
-        ch_num_list = [0]
+        ch_num_list = [1]
         ch_num = tk.IntVar(self, value=ch_num_list[0])
         # ch_num.set(ch_num_list[0])
 
@@ -162,9 +181,9 @@ class App(tk.Tk):
         ch_nums = list
         ch_names = list
         ch_info = {
-            0: '',
+            1: '',
         }
-
+        form_complete = tk.BooleanVar(self, value=False)
         folder_path = tk.StringVar(self, value=r'./input')
         erode_thickness = tk.IntVar(self, value=0)
         ring_thickness = tk.IntVar(self, value=1)
@@ -177,8 +196,9 @@ class App(tk.Tk):
         show_overlap = tk.BooleanVar(self, value=True)
         show_plots = tk.BooleanVar(self, value=True)
         rdl_aver = tk.BooleanVar(self, value=True)
-        ch_base = tk.IntVar(self, value=0)
+        ch_base = tk.IntVar(self, value=1)
         ch_name = tk.StringVar(self)
+        px_size = tk.DoubleVar(self, value=0.10825)
 
         # heading
         heading = ttk.Label(self, text='Parameters Setup', style='Heading.TLabel')
@@ -349,6 +369,15 @@ class App(tk.Tk):
 
         )
         ch_base_opt.grid(column=0, row=81, sticky=tk.E, **paddings)
+
+        # pixel size entry
+        px_size_lb = ttk.Label(self, text="um/pixel:")
+        px_size_lb.grid(column=0, row=85, columnspan=1, sticky=tk.W, **paddings)
+        px_size_entry = ttk.Entry(self, textvariable=px_size, )
+        vcmd_f = (px_size_entry.register(validate_float), '%P')
+        ivcmd_f = (px_size_entry.register(on_invalid_float),)
+        px_size_entry.config(validate='focusout', validatecommand=vcmd_f, invalidcommand=ivcmd_f)
+        px_size_entry.grid(column=1, row=85, columnspan=1, sticky=tk.EW, **paddings)
 
         # error message
         err_msg_lb = ttk.Label(self, text="")
